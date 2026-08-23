@@ -1,0 +1,37 @@
+# "ML: Pagos por teléfono" | Python 3.11.x
+# Core runtime. Lean by design: only what the current roadmap step needs.
+#
+#   pip install -r requirements.txt
+#   pip freeze > requirements.lock.txt      # commit the lock, not pins here
+
+# --- Data collection (BCRP API) ---
+requests
+python-dotenv
+
+# --- Data handling ---
+pandas
+numpy
+pyarrow                     # BigQuery load/read path + parquet in data/interim
+
+# --- BigQuery ---
+google-cloud-bigquery
+db-dtypes                   # required for .to_dataframe() on DATE/TIME columns
+
+# --- EDA ---
+statsmodels                 # LOWESS in notebooks/01_eda_bcrp.py; SARIMAX later
+matplotlib
+seaborn
+
+# ---------------------------------------------------------------------------
+# Add later, one roadmap step at a time — keeps the env small and resolvable:
+#
+#   step 6  pip install scikit-learn xgboost
+#   step 7  pip install mlflow            (heavy: flask, alembic, sqlalchemy)
+#   step 8  pip install torch --index-url https://download.pytorch.org/whl/cu121
+#   step 9  pip install fastapi uvicorn
+#
+#   optional: prophet (heavy on Windows), pmdarima (lags new numpy releases),
+#             pytrends (Google Trends, if that source is added)
+#
+# dbt lives in its own virtualenv — see requirements-dbt.txt.
+# ---------------------------------------------------------------------------

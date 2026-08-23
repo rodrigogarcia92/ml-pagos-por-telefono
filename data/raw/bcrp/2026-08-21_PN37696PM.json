@@ -1,0 +1,199 @@
+{
+  "code": "PN37696PM",
+  "api_name": "Remuneraciones - Ingreso promedio del sector formal privado - Nominal (S/)",
+  "url": "https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PN37696PM/json/2024-1/2026-12/esp",
+  "response": {
+    "config": {
+      "title": "Remuneraciones",
+      "series": [
+        {
+          "name": "Remuneraciones - Ingreso promedio del sector formal privado - Nominal (S/)",
+          "dec": "1"
+        }
+      ]
+    },
+    "periods": [
+      {
+        "name": "Ene.2024",
+        "values": [
+          "2783.52612304688"
+        ]
+      },
+      {
+        "name": "Feb.2024",
+        "values": [
+          "2951.3564453125"
+        ]
+      },
+      {
+        "name": "Mar.2024",
+        "values": [
+          "4141.89697265625"
+        ]
+      },
+      {
+        "name": "Abr.2024",
+        "values": [
+          "2946.09326171875"
+        ]
+      },
+      {
+        "name": "May.2024",
+        "values": [
+          "2879.408203125"
+        ]
+      },
+      {
+        "name": "Jun.2024",
+        "values": [
+          "2832.37768554688"
+        ]
+      },
+      {
+        "name": "Jul.2024",
+        "values": [
+          "4591.1826171875"
+        ]
+      },
+      {
+        "name": "Ago.2024",
+        "values": [
+          "2753.06396484375"
+        ]
+      },
+      {
+        "name": "Sep.2024",
+        "values": [
+          "2773.578125"
+        ]
+      },
+      {
+        "name": "Oct.2024",
+        "values": [
+          "2765.35302734375"
+        ]
+      },
+      {
+        "name": "Nov.2024",
+        "values": [
+          "2800.74365234375"
+        ]
+      },
+      {
+        "name": "Dic.2024",
+        "values": [
+          "4895.8818359375"
+        ]
+      },
+      {
+        "name": "Ene.2025",
+        "values": [
+          "2880.30444335938"
+        ]
+      },
+      {
+        "name": "Feb.2025",
+        "values": [
+          "3055.041015625"
+        ]
+      },
+      {
+        "name": "Mar.2025",
+        "values": [
+          "4294.73291015625"
+        ]
+      },
+      {
+        "name": "Abr.2025",
+        "values": [
+          "2998.8369140625"
+        ]
+      },
+      {
+        "name": "May.2025",
+        "values": [
+          "2930.6328125"
+        ]
+      },
+      {
+        "name": "Jun.2025",
+        "values": [
+          "2938.43920898438"
+        ]
+      },
+      {
+        "name": "Jul.2025",
+        "values": [
+          "4729.60009765625"
+        ]
+      },
+      {
+        "name": "Ago.2025",
+        "values": [
+          "2867.74243164063"
+        ]
+      },
+      {
+        "name": "Sep.2025",
+        "values": [
+          "2916.48559570313"
+        ]
+      },
+      {
+        "name": "Oct.2025",
+        "values": [
+          "2889.52734375"
+        ]
+      },
+      {
+        "name": "Nov.2025",
+        "values": [
+          "2886.9619140625"
+        ]
+      },
+      {
+        "name": "Dic.2025",
+        "values": [
+          "4991.85205078125"
+        ]
+      },
+      {
+        "name": "Ene.2026",
+        "values": [
+          "2955.71557617188"
+        ]
+      },
+      {
+        "name": "Feb.2026",
+        "values": [
+          "3094.87475585938"
+        ]
+      },
+      {
+        "name": "Mar.2026",
+        "values": [
+          "4661.21435546875"
+        ]
+      },
+      {
+        "name": "Abr.2026",
+        "values": [
+          "3166.06420898438"
+        ]
+      },
+      {
+        "name": "May.2026",
+        "values": [
+          "2962.51391601563"
+        ]
+      },
+      {
+        "name": "Jun.2026",
+        "values": [
+          "2946.099609375"
+        ]
+      }
+    ]
+  },
+  "pulled_at": "2026-08-21"
+}

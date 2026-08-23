@@ -1,0 +1,14 @@
+# dbt — install in a SEPARATE virtualenv, not .venv
+#
+#   python -m venv .venv-dbt
+#   .venv-dbt\Scripts\activate
+#   pip install -r requirements-dbt.txt
+#   dbt --version
+#
+# Why separate: dbt-core pins its own jinja2 / click / protobuf versions, which
+# collide with mlflow's. Keeping dbt isolated means neither can break the other.
+# This also mirrors reality — dbt runs as its own process against the warehouse;
+# your Python code never imports it.
+
+dbt-core
+dbt-bigquery

@@ -1,0 +1,6 @@
+# Development tooling.  pip install -r requirements-dev.txt
+-r requirements.txt
+
+ipykernel                   # VS Code interactive cells (# %%)
+ruff                        # linter + formatter (extension already installed)
+pytest                      # tests for the ETL, and later the FastAPI app

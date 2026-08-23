@@ -1,0 +1,199 @@
+{
+  "code": "PN01770AM",
+  "api_name": "Producto bruto interno y demanda interna (índice 2007 = 100) - PBI",
+  "url": "https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PN01770AM/json/2024-1/2026-12/esp",
+  "response": {
+    "config": {
+      "title": "Producto bruto interno y demanda interna (índice 2007 = 100)",
+      "series": [
+        {
+          "name": "Producto bruto interno y demanda interna (índice 2007 = 100) - PBI",
+          "dec": "1"
+        }
+      ]
+    },
+    "periods": [
+      {
+        "name": "Ene.2024",
+        "values": [
+          "167.763729071427"
+        ]
+      },
+      {
+        "name": "Feb.2024",
+        "values": [
+          "167.627777899434"
+        ]
+      },
+      {
+        "name": "Mar.2024",
+        "values": [
+          "171.991601943114"
+        ]
+      },
+      {
+        "name": "Abr.2024",
+        "values": [
+          "181.884033744884"
+        ]
+      },
+      {
+        "name": "May.2024",
+        "values": [
+          "187.861455834207"
+        ]
+      },
+      {
+        "name": "Jun.2024",
+        "values": [
+          "177.84964450269"
+        ]
+      },
+      {
+        "name": "Jul.2024",
+        "values": [
+          "184.739893585405"
+        ]
+      },
+      {
+        "name": "Ago.2024",
+        "values": [
+          "186.36135917895"
+        ]
+      },
+      {
+        "name": "Sep.2024",
+        "values": [
+          "187.029143584624"
+        ]
+      },
+      {
+        "name": "Oct.2024",
+        "values": [
+          "189.015297801315"
+        ]
+      },
+      {
+        "name": "Nov.2024",
+        "values": [
+          "190.055398147607"
+        ]
+      },
+      {
+        "name": "Dic.2024",
+        "values": [
+          "205.997040254343"
+        ]
+      },
+      {
+        "name": "Ene.2025",
+        "values": [
+          "175.149836073771"
+        ]
+      },
+      {
+        "name": "Feb.2025",
+        "values": [
+          "172.37391304698"
+        ]
+      },
+      {
+        "name": "Mar.2025",
+        "values": [
+          "180.203241529788"
+        ]
+      },
+      {
+        "name": "Abr.2025",
+        "values": [
+          "184.247932889231"
+        ]
+      },
+      {
+        "name": "May.2025",
+        "values": [
+          "191.660772020334"
+        ]
+      },
+      {
+        "name": "Jun.2025",
+        "values": [
+          "186.635508640391"
+        ]
+      },
+      {
+        "name": "Jul.2025",
+        "values": [
+          "191.299345383626"
+        ]
+      },
+      {
+        "name": "Ago.2025",
+        "values": [
+          "192.259688760132"
+        ]
+      },
+      {
+        "name": "Sep.2025",
+        "values": [
+          "195.244586662391"
+        ]
+      },
+      {
+        "name": "Oct.2025",
+        "values": [
+          "196.909184390464"
+        ]
+      },
+      {
+        "name": "Nov.2025",
+        "values": [
+          "193.075763031832"
+        ]
+      },
+      {
+        "name": "Dic.2025",
+        "values": [
+          "214.526622670965"
+        ]
+      },
+      {
+        "name": "Ene.2026",
+        "values": [
+          "181.727823593049"
+        ]
+      },
+      {
+        "name": "Feb.2026",
+        "values": [
+          "178.717924011079"
+        ]
+      },
+      {
+        "name": "Mar.2026",
+        "values": [
+          "186.092156982542"
+        ]
+      },
+      {
+        "name": "Abr.2026",
+        "values": [
+          "191.263933498313"
+        ]
+      },
+      {
+        "name": "May.2026",
+        "values": [
+          "195.817894165455"
+        ]
+      },
+      {
+        "name": "Jun.2026",
+        "values": [
+          "189.904151223157"
+        ]
+      }
+    ]
+  },
+  "pulled_at": "2026-08-21"
+}

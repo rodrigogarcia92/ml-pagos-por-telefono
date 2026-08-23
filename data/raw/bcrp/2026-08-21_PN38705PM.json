@@ -1,0 +1,205 @@
+{
+  "code": "PN38705PM",
+  "api_name": "Índice de precios Lima Metropolitana (índice Dic.2021 = 100) - Índice de Precios al Consumidor (IPC)",
+  "url": "https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PN38705PM/json/2024-1/2026-12/esp",
+  "response": {
+    "config": {
+      "title": "Índice de precios Lima Metropolitana (índice Dic.2021 = 100)",
+      "series": [
+        {
+          "name": "Índice de precios Lima Metropolitana (índice Dic.2021 = 100) - Índice de Precios al Consumidor (IPC)",
+          "dec": "2"
+        }
+      ]
+    },
+    "periods": [
+      {
+        "name": "Ene.2024",
+        "values": [
+          "111.991911"
+        ]
+      },
+      {
+        "name": "Feb.2024",
+        "values": [
+          "112.616278"
+        ]
+      },
+      {
+        "name": "Mar.2024",
+        "values": [
+          "113.75301"
+        ]
+      },
+      {
+        "name": "Abr.2024",
+        "values": [
+          "113.694232"
+        ]
+      },
+      {
+        "name": "May.2024",
+        "values": [
+          "113.591104"
+        ]
+      },
+      {
+        "name": "Jun.2024",
+        "values": [
+          "113.729392"
+        ]
+      },
+      {
+        "name": "Jul.2024",
+        "values": [
+          "113.998099"
+        ]
+      },
+      {
+        "name": "Ago.2024",
+        "values": [
+          "114.322048"
+        ]
+      },
+      {
+        "name": "Sep.2024",
+        "values": [
+          "114.050464"
+        ]
+      },
+      {
+        "name": "Oct.2024",
+        "values": [
+          "113.944279"
+        ]
+      },
+      {
+        "name": "Nov.2024",
+        "values": [
+          "114.051561"
+        ]
+      },
+      {
+        "name": "Dic.2024",
+        "values": [
+          "114.172077"
+        ]
+      },
+      {
+        "name": "Ene.2025",
+        "values": [
+          "114.065534"
+        ]
+      },
+      {
+        "name": "Feb.2025",
+        "values": [
+          "114.279991"
+        ]
+      },
+      {
+        "name": "Mar.2025",
+        "values": [
+          "115.205841"
+        ]
+      },
+      {
+        "name": "Abr.2025",
+        "values": [
+          "115.572272"
+        ]
+      },
+      {
+        "name": "May.2025",
+        "values": [
+          "115.507003"
+        ]
+      },
+      {
+        "name": "Jun.2025",
+        "values": [
+          "115.655637"
+        ]
+      },
+      {
+        "name": "Jul.2025",
+        "values": [
+          "115.9233"
+        ]
+      },
+      {
+        "name": "Ago.2025",
+        "values": [
+          "115.586828"
+        ]
+      },
+      {
+        "name": "Sep.2025",
+        "values": [
+          "115.599718"
+        ]
+      },
+      {
+        "name": "Oct.2025",
+        "values": [
+          "115.484549"
+        ]
+      },
+      {
+        "name": "Nov.2025",
+        "values": [
+          "115.612485"
+        ]
+      },
+      {
+        "name": "Dic.2025",
+        "values": [
+          "115.894705"
+        ]
+      },
+      {
+        "name": "Ene.2026",
+        "values": [
+          "116.005694"
+        ]
+      },
+      {
+        "name": "Feb.2026",
+        "values": [
+          "116.81034"
+        ]
+      },
+      {
+        "name": "Mar.2026",
+        "values": [
+          "119.5889"
+        ]
+      },
+      {
+        "name": "Abr.2026",
+        "values": [
+          "120.211509"
+        ]
+      },
+      {
+        "name": "May.2026",
+        "values": [
+          "120.017612"
+        ]
+      },
+      {
+        "name": "Jun.2026",
+        "values": [
+          "120.292167"
+        ]
+      },
+      {
+        "name": "Jul.2026",
+        "values": [
+          "120.635759"
+        ]
+      }
+    ]
+  },
+  "pulled_at": "2026-08-21"
+}

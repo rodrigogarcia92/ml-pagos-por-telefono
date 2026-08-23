@@ -1,0 +1,205 @@
+{
+  "code": "PN01246PM",
+  "api_name": "Tipo de cambio - promedio del periodo (S/ por US$) - Tipo de Cambio Nominal Promedio (S/ por US$)",
+  "url": "https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PN01246PM/json/2024-1/2026-12/esp",
+  "response": {
+    "config": {
+      "title": "Tipo de cambio - promedio del periodo (S/ por US$)",
+      "series": [
+        {
+          "name": "Tipo de cambio - promedio del periodo (S/ por US$) - Tipo de Cambio Nominal Promedio (S/ por US$)",
+          "dec": "3"
+        }
+      ]
+    },
+    "periods": [
+      {
+        "name": "Ene.2024",
+        "values": [
+          "3.73980952380952"
+        ]
+      },
+      {
+        "name": "Feb.2024",
+        "values": [
+          "3.82730952380952"
+        ]
+      },
+      {
+        "name": "Mar.2024",
+        "values": [
+          "3.70955263157895"
+        ]
+      },
+      {
+        "name": "Abr.2024",
+        "values": [
+          "3.71315909090909"
+        ]
+      },
+      {
+        "name": "May.2024",
+        "values": [
+          "3.73097727272727"
+        ]
+      },
+      {
+        "name": "Jun.2024",
+        "values": [
+          "3.78463157894737"
+        ]
+      },
+      {
+        "name": "Jul.2024",
+        "values": [
+          "3.7644"
+        ]
+      },
+      {
+        "name": "Ago.2024",
+        "values": [
+          "3.741325"
+        ]
+      },
+      {
+        "name": "Sep.2024",
+        "values": [
+          "3.76821428571429"
+        ]
+      },
+      {
+        "name": "Oct.2024",
+        "values": [
+          "3.75359090909091"
+        ]
+      },
+      {
+        "name": "Nov.2024",
+        "values": [
+          "3.77885"
+        ]
+      },
+      {
+        "name": "Dic.2024",
+        "values": [
+          "3.73489473684211"
+        ]
+      },
+      {
+        "name": "Ene.2025",
+        "values": [
+          "3.74775"
+        ]
+      },
+      {
+        "name": "Feb.2025",
+        "values": [
+          "3.6977"
+        ]
+      },
+      {
+        "name": "Mar.2025",
+        "values": [
+          "3.65259523809524"
+        ]
+      },
+      {
+        "name": "Abr.2025",
+        "values": [
+          "3.6997"
+        ]
+      },
+      {
+        "name": "May.2025",
+        "values": [
+          "3.66014285714286"
+        ]
+      },
+      {
+        "name": "Jun.2025",
+        "values": [
+          "3.60390476190476"
+        ]
+      },
+      {
+        "name": "Jul.2025",
+        "values": [
+          "3.5562"
+        ]
+      },
+      {
+        "name": "Ago.2025",
+        "values": [
+          "3.5432"
+        ]
+      },
+      {
+        "name": "Sep.2025",
+        "values": [
+          "3.50281818181818"
+        ]
+      },
+      {
+        "name": "Oct.2025",
+        "values": [
+          "3.41409090909091"
+        ]
+      },
+      {
+        "name": "Nov.2025",
+        "values": [
+          "3.37285"
+        ]
+      },
+      {
+        "name": "Dic.2025",
+        "values": [
+          "3.36673684210526"
+        ]
+      },
+      {
+        "name": "Ene.2026",
+        "values": [
+          "3.35675"
+        ]
+      },
+      {
+        "name": "Feb.2026",
+        "values": [
+          "3.356975"
+        ]
+      },
+      {
+        "name": "Mar.2026",
+        "values": [
+          "3.44677272727273"
+        ]
+      },
+      {
+        "name": "Abr.2026",
+        "values": [
+          "3.442675"
+        ]
+      },
+      {
+        "name": "May.2026",
+        "values": [
+          "3.434825"
+        ]
+      },
+      {
+        "name": "Jun.2026",
+        "values": [
+          "3.40457142857143"
+        ]
+      },
+      {
+        "name": "Jul.2026",
+        "values": [
+          "3.4"
+        ]
+      }
+    ]
+  },
+  "pulled_at": "2026-08-21"
+}

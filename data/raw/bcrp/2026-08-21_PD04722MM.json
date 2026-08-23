@@ -1,0 +1,211 @@
+{
+  "code": "PD04722MM",
+  "api_name": "Tasas de interés del Banco Central de Reserva - Tasa de Referencia de la Política Monetaria",
+  "url": "https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PD04722MM/json/2024-1/2026-12/esp",
+  "response": {
+    "config": {
+      "title": "Tasas de interés del Banco Central de Reserva",
+      "series": [
+        {
+          "name": "Tasas de interés del Banco Central de Reserva - Tasa de Referencia de la Política Monetaria",
+          "dec": "2"
+        }
+      ]
+    },
+    "periods": [
+      {
+        "name": "Ene.2024",
+        "values": [
+          "6.5"
+        ]
+      },
+      {
+        "name": "Feb.2024",
+        "values": [
+          "6.25"
+        ]
+      },
+      {
+        "name": "Mar.2024",
+        "values": [
+          "6.25"
+        ]
+      },
+      {
+        "name": "Abr.2024",
+        "values": [
+          "6"
+        ]
+      },
+      {
+        "name": "May.2024",
+        "values": [
+          "5.75"
+        ]
+      },
+      {
+        "name": "Jun.2024",
+        "values": [
+          "5.75"
+        ]
+      },
+      {
+        "name": "Jul.2024",
+        "values": [
+          "5.75"
+        ]
+      },
+      {
+        "name": "Ago.2024",
+        "values": [
+          "5.5"
+        ]
+      },
+      {
+        "name": "Sep.2024",
+        "values": [
+          "5.25"
+        ]
+      },
+      {
+        "name": "Oct.2024",
+        "values": [
+          "5.25"
+        ]
+      },
+      {
+        "name": "Nov.2024",
+        "values": [
+          "5"
+        ]
+      },
+      {
+        "name": "Dic.2024",
+        "values": [
+          "5"
+        ]
+      },
+      {
+        "name": "Ene.2025",
+        "values": [
+          "4.75"
+        ]
+      },
+      {
+        "name": "Feb.2025",
+        "values": [
+          "4.75"
+        ]
+      },
+      {
+        "name": "Mar.2025",
+        "values": [
+          "4.75"
+        ]
+      },
+      {
+        "name": "Abr.2025",
+        "values": [
+          "4.75"
+        ]
+      },
+      {
+        "name": "May.2025",
+        "values": [
+          "4.5"
+        ]
+      },
+      {
+        "name": "Jun.2025",
+        "values": [
+          "4.5"
+        ]
+      },
+      {
+        "name": "Jul.2025",
+        "values": [
+          "4.5"
+        ]
+      },
+      {
+        "name": "Ago.2025",
+        "values": [
+          "4.5"
+        ]
+      },
+      {
+        "name": "Sep.2025",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Oct.2025",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Nov.2025",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Dic.2025",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Ene.2026",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Feb.2026",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Mar.2026",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Abr.2026",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "May.2026",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Jun.2026",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Jul.2026",
+        "values": [
+          "4.25"
+        ]
+      },
+      {
+        "name": "Ago.2026",
+        "values": [
+          "4.25"
+        ]
+      }
+    ]
+  },
+  "pulled_at": "2026-08-21"
+}

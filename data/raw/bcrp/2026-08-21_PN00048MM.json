@@ -1,0 +1,199 @@
+{
+  "code": "PN00048MM",
+  "api_name": "Cuentas monetarias del Banco Central de Reserva del Perú - Obligaciones Monetarias - MN - Emisión Primaria - Circulante (millones S/)",
+  "url": "https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PN00048MM/json/2024-1/2026-12/esp",
+  "response": {
+    "config": {
+      "title": "Cuentas monetarias del Banco Central de Reserva del Perú",
+      "series": [
+        {
+          "name": "Cuentas monetarias del Banco Central de Reserva del Perú - Obligaciones Monetarias - MN - Emisión Primaria - Circulante (millones S/)",
+          "dec": "0"
+        }
+      ]
+    },
+    "periods": [
+      {
+        "name": "Ene.2024",
+        "values": [
+          "74115.13557798"
+        ]
+      },
+      {
+        "name": "Feb.2024",
+        "values": [
+          "73417.56107918"
+        ]
+      },
+      {
+        "name": "Mar.2024",
+        "values": [
+          "72951.40826758"
+        ]
+      },
+      {
+        "name": "Abr.2024",
+        "values": [
+          "72621.11154598"
+        ]
+      },
+      {
+        "name": "May.2024",
+        "values": [
+          "73405.61700448"
+        ]
+      },
+      {
+        "name": "Jun.2024",
+        "values": [
+          "75861.38083678"
+        ]
+      },
+      {
+        "name": "Jul.2024",
+        "values": [
+          "78427.67982568"
+        ]
+      },
+      {
+        "name": "Ago.2024",
+        "values": [
+          "79761.13045278"
+        ]
+      },
+      {
+        "name": "Sep.2024",
+        "values": [
+          "80100.46498288"
+        ]
+      },
+      {
+        "name": "Oct.2024",
+        "values": [
+          "80521.53268088"
+        ]
+      },
+      {
+        "name": "Nov.2024",
+        "values": [
+          "81606.43185378"
+        ]
+      },
+      {
+        "name": "Dic.2024",
+        "values": [
+          "84094.71896488"
+        ]
+      },
+      {
+        "name": "Ene.2025",
+        "values": [
+          "83405.82625078"
+        ]
+      },
+      {
+        "name": "Feb.2025",
+        "values": [
+          "82463.43361638"
+        ]
+      },
+      {
+        "name": "Mar.2025",
+        "values": [
+          "82142.74931878"
+        ]
+      },
+      {
+        "name": "Abr.2025",
+        "values": [
+          "82966.75344948"
+        ]
+      },
+      {
+        "name": "May.2025",
+        "values": [
+          "84234.67261048"
+        ]
+      },
+      {
+        "name": "Jun.2025",
+        "values": [
+          "84888.36162188"
+        ]
+      },
+      {
+        "name": "Jul.2025",
+        "values": [
+          "87216.97711718"
+        ]
+      },
+      {
+        "name": "Ago.2025",
+        "values": [
+          "88596.18951618"
+        ]
+      },
+      {
+        "name": "Sep.2025",
+        "values": [
+          "89343.40912618"
+        ]
+      },
+      {
+        "name": "Oct.2025",
+        "values": [
+          "90120.33799078"
+        ]
+      },
+      {
+        "name": "Nov.2025",
+        "values": [
+          "91909.02309118"
+        ]
+      },
+      {
+        "name": "Dic.2025",
+        "values": [
+          "96313.28999568"
+        ]
+      },
+      {
+        "name": "Ene.2026",
+        "values": [
+          "97083.47584748"
+        ]
+      },
+      {
+        "name": "Feb.2026",
+        "values": [
+          "97951.65078898"
+        ]
+      },
+      {
+        "name": "Mar.2026",
+        "values": [
+          "97950.82643088"
+        ]
+      },
+      {
+        "name": "Abr.2026",
+        "values": [
+          "98619.42642858"
+        ]
+      },
+      {
+        "name": "May.2026",
+        "values": [
+          "99731.71682778"
+        ]
+      },
+      {
+        "name": "Jun.2026",
+        "values": [
+          "100046.50922408"
+        ]
+      }
+    ]
+  },
+  "pulled_at": "2026-08-21"
+}

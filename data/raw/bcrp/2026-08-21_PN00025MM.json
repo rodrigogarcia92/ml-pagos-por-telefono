@@ -1,0 +1,199 @@
+{
+  "code": "PN00025MM",
+  "api_name": "Liquidez de las sociedades creadoras de depósito (fin de periodo) - Coeficiente de Dolarización de la Liquidez (%)",
+  "url": "https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PN00025MM/json/2024-1/2026-12/esp",
+  "response": {
+    "config": {
+      "title": "Liquidez de las sociedades creadoras de depósito (fin de periodo)",
+      "series": [
+        {
+          "name": "Liquidez de las sociedades creadoras de depósito (fin de periodo) - Coeficiente de Dolarización de la Liquidez (%)",
+          "dec": "0"
+        }
+      ]
+    },
+    "periods": [
+      {
+        "name": "Ene.2024",
+        "values": [
+          "29.3062496192306"
+        ]
+      },
+      {
+        "name": "Feb.2024",
+        "values": [
+          "29.0206850799546"
+        ]
+      },
+      {
+        "name": "Mar.2024",
+        "values": [
+          "30.6046911556525"
+        ]
+      },
+      {
+        "name": "Abr.2024",
+        "values": [
+          "30.3498236914389"
+        ]
+      },
+      {
+        "name": "May.2024",
+        "values": [
+          "29.0288471726669"
+        ]
+      },
+      {
+        "name": "Jun.2024",
+        "values": [
+          "28.3965811960882"
+        ]
+      },
+      {
+        "name": "Jul.2024",
+        "values": [
+          "27.8389935925136"
+        ]
+      },
+      {
+        "name": "Ago.2024",
+        "values": [
+          "28.1801779519953"
+        ]
+      },
+      {
+        "name": "Sep.2024",
+        "values": [
+          "27.8455441300068"
+        ]
+      },
+      {
+        "name": "Oct.2024",
+        "values": [
+          "28.2072375309554"
+        ]
+      },
+      {
+        "name": "Nov.2024",
+        "values": [
+          "27.886565154341"
+        ]
+      },
+      {
+        "name": "Dic.2024",
+        "values": [
+          "27.7401860280883"
+        ]
+      },
+      {
+        "name": "Ene.2025",
+        "values": [
+          "27.8744884725546"
+        ]
+      },
+      {
+        "name": "Feb.2025",
+        "values": [
+          "28.1323369421997"
+        ]
+      },
+      {
+        "name": "Mar.2025",
+        "values": [
+          "28.1193140654322"
+        ]
+      },
+      {
+        "name": "Abr.2025",
+        "values": [
+          "28.1270793734478"
+        ]
+      },
+      {
+        "name": "May.2025",
+        "values": [
+          "27.6103210242236"
+        ]
+      },
+      {
+        "name": "Jun.2025",
+        "values": [
+          "27.8018295600761"
+        ]
+      },
+      {
+        "name": "Jul.2025",
+        "values": [
+          "27.7088558697564"
+        ]
+      },
+      {
+        "name": "Ago.2025",
+        "values": [
+          "27.4995278044518"
+        ]
+      },
+      {
+        "name": "Sep.2025",
+        "values": [
+          "27.6372660006715"
+        ]
+      },
+      {
+        "name": "Oct.2025",
+        "values": [
+          "27.1955376046682"
+        ]
+      },
+      {
+        "name": "Nov.2025",
+        "values": [
+          "26.4149175140336"
+        ]
+      },
+      {
+        "name": "Dic.2025",
+        "values": [
+          "25.3594900458294"
+        ]
+      },
+      {
+        "name": "Ene.2026",
+        "values": [
+          "25.7572054017756"
+        ]
+      },
+      {
+        "name": "Feb.2026",
+        "values": [
+          "25.5753228722336"
+        ]
+      },
+      {
+        "name": "Mar.2026",
+        "values": [
+          "26.0163411311803"
+        ]
+      },
+      {
+        "name": "Abr.2026",
+        "values": [
+          "26.5507665611553"
+        ]
+      },
+      {
+        "name": "May.2026",
+        "values": [
+          "25.6499534334655"
+        ]
+      },
+      {
+        "name": "Jun.2026",
+        "values": [
+          "26.717351681838"
+        ]
+      }
+    ]
+  },
+  "pulled_at": "2026-08-21"
+}

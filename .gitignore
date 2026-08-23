@@ -1,0 +1,49 @@
+# --- Secrets & credentials -------------------------------------------------
+.env
+*-service-account*.json
+gcp-key*.json
+credentials.json
+
+# --- Virtual environments --------------------------------------------------
+.venv/
+.venv-dbt/
+venv/
+env/
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- Derived data ----------------------------------------------------------
+# data/raw/ IS committed: 21 small JSON snapshots (~80 KB) that make the whole
+# pipeline reproducible from the repo alone. Everything below is regenerable.
+data/interim/
+data/processed/
+data/external/
+!data/**/.gitkeep
+
+# --- Models & experiments --------------------------------------------------
+models/*
+!models/.gitkeep
+mlruns/
+mlflow.db
+
+# --- Reports ---------------------------------------------------------------
+reports/**/*.png
+reports/**/*.html
+!reports/.gitkeep
+
+# --- dbt -------------------------------------------------------------------
+target/
+dbt_packages/
+logs/
+profiles.yml
+
+# --- OS / editor -----------------------------------------------------------
+Thumbs.db
+desktop.ini
+.DS_Store
