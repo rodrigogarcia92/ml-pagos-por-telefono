@@ -28,7 +28,10 @@ MACRO_SERIES = [
 ]
 
 # CCE aggregate series — broader payment-system context for Yape/Plin modelling.
-# Confirmed active from 2024 onwards; pre-2024 long-history codes still unresolved (open item).
+# NOTE: these only reach back to 2024, so they do NOT provide the long history
+# they were originally included for. That role now belongs to PAGOS_AGREGADOS
+# below. Candidates for removal once the correlation work confirms they add
+# nothing the aggregate series don't.
 CCE_SERIES = [
     {"code": "PN42230EM", "col_name": "n_cce_cheques", "description": "CCE — Cheques — Número (miles)", "category": "complementary", "frequency": "mensual"},
     {"code": "PN42231EM", "col_name": "v_cce_credito", "description": "CCE — Transferencias de Crédito — Monto (millones S/)", "category": "complementary", "frequency": "mensual"},
@@ -38,7 +41,34 @@ CCE_SERIES = [
     {"code": "PN42661EM", "col_name": "v_alias_intra_tot", "description": "Pagos con alias — Valor Intrabancarias total (pre-wallet-split aggregate)", "category": "complementary", "frequency": "mensual"},
 ]
 
-ALL_SERIES = TARGET_SERIES + MACRO_SERIES + CCE_SERIES
+# Aggregate low-value payment instruments — BCRP table "Instrumentos de pagos de
+# alto y bajo valor". These carry the long history the CCE codes were supposed
+# to provide: monthly from Jan 2013, ~163 observations.
+#
+# Why these four:
+#   * Dinero Electrónico is a SEPARATE instrument from Yape/Plin — prepaid
+#     e-money balances, not bank-account transfers. In Jun 2026 it was ~19.7M
+#     operations against ~1,114M intrabank transfers (about 1.8%). Useful as a
+#     digital-adoption covariate; misleading if read as a substitute measure.
+#   * Transferencias Intrabancarias is the aggregate PARENT of the main target:
+#     n_transf_intra_yape is Yape's slice of exactly this flow. 2013–2026 gives
+#     the pre-Yape baseline and the full adoption curve.
+#
+# Verified directly against the API: PN42180EM, PN42209EM, PN42200EM.
+# PN42171EM is INFERRED from the monto/número offset of 29 that holds across the
+# rest of the table — the fetch script will reject it loudly if wrong.
+#
+# Not pulled yet, one line away if the channel split proves interesting:
+#   PN42172EM / PN42201EM  Intrabancarias — canales no presenciales
+#   PN42173EM / PN42202EM  Intrabancarias — canales presenciales
+PAGOS_AGREGADOS_SERIES = [
+    {"code": "PN42209EM", "col_name": "n_dinero_electronico", "description": "Bajo valor — Dinero Electrónico — Número de operaciones (millones)", "category": "pagos_agregados", "frequency": "mensual"},
+    {"code": "PN42180EM", "col_name": "v_dinero_electronico", "description": "Bajo valor — Dinero Electrónico — Monto de operaciones (millones S/)", "category": "pagos_agregados", "frequency": "mensual"},
+    {"code": "PN42200EM", "col_name": "n_transf_intra_agg", "description": "Bajo valor — Transferencias Intrabancarias (total sistema) — Número de operaciones (millones)", "category": "pagos_agregados", "frequency": "mensual"},
+    {"code": "PN42171EM", "col_name": "v_transf_intra_agg", "description": "Bajo valor — Transferencias Intrabancarias (total sistema) — Monto de operaciones (millones S/)", "category": "pagos_agregados", "frequency": "mensual"},
+]
+
+ALL_SERIES = TARGET_SERIES + MACRO_SERIES + CCE_SERIES + PAGOS_AGREGADOS_SERIES
 
 # How far back to request each category, as BCRP period strings ("YYYY-M").
 #
@@ -50,11 +80,14 @@ ALL_SERIES = TARGET_SERIES + MACRO_SERIES + CCE_SERIES
 #
 # 2010 covers the full digital-payments era in Peru plus a long pre-Yape
 # baseline, without dragging in structurally different pre-2000 regimes.
-# The API returns whatever exists, so an over-wide window is harmless.
+# The aggregate payment instruments start in 2013 at source, so asking from
+# 2013 costs nothing. The API returns whatever exists, so an over-wide window
+# is harmless.
 START_BY_CATEGORY = {
     "target": "2024-1",
     "macro": "2010-1",
     "complementary": "2010-1",
+    "pagos_agregados": "2013-1",
 }
 
 # Lookups keyed by series code — the single source of truth for renaming columns.
@@ -68,7 +101,13 @@ _dupes = {n for n in COL_NAME_BY_CODE.values() if list(COL_NAME_BY_CODE.values()
 if _dupes:
     raise ValueError(f"Duplicate col_name(s) in config: {sorted(_dupes)}")
 
-# Same guard for categories: a typo would silently fall back to the wrong window.
+# Same guard for series codes — a copy-paste slip would silently drop a series.
+_codes = [s["code"] for s in ALL_SERIES]
+_dupe_codes = {c for c in _codes if _codes.count(c) > 1}
+if _dupe_codes:
+    raise ValueError(f"Duplicate series code(s) in config: {sorted(_dupe_codes)}")
+
+# And for categories: a typo would silently fall back to the wrong window.
 _unknown = {s["category"] for s in ALL_SERIES} - set(START_BY_CATEGORY)
 if _unknown:
     raise ValueError(f"No start date configured for category/ies: {sorted(_unknown)}")

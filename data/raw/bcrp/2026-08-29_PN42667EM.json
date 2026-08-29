@@ -1,0 +1,199 @@
+{
+  "code": "PN42667EM",
+  "api_name": "Pagos inmediatos con alias (Valor y Número en Millones de Soles) - Valor - Transferencias Interbancarias - Procesadas vía Visadirect u otro similar - Yape",
+  "url": "https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PN42667EM/json/2024-1/2026-12/esp",
+  "response": {
+    "config": {
+      "title": "Pagos inmediatos con alias (Valor y Número en Millones de Soles)",
+      "series": [
+        {
+          "name": "Pagos inmediatos con alias (Valor y Número en Millones de Soles) - Valor - Transferencias Interbancarias - Procesadas vía Visadirect u otro similar - Yape",
+          "dec": "0"
+        }
+      ]
+    },
+    "periods": [
+      {
+        "name": "Ene.2024",
+        "values": [
+          "1434.66742240095"
+        ]
+      },
+      {
+        "name": "Feb.2024",
+        "values": [
+          "1502.76253669676"
+        ]
+      },
+      {
+        "name": "Mar.2024",
+        "values": [
+          "1727.032030897"
+        ]
+      },
+      {
+        "name": "Abr.2024",
+        "values": [
+          "2052.78493089136"
+        ]
+      },
+      {
+        "name": "May.2024",
+        "values": [
+          "2497.2445454769"
+        ]
+      },
+      {
+        "name": "Jun.2024",
+        "values": [
+          "2586.4444545029"
+        ]
+      },
+      {
+        "name": "Jul.2024",
+        "values": [
+          "3066.4197018152"
+        ]
+      },
+      {
+        "name": "Ago.2024",
+        "values": [
+          "3145.1470547855"
+        ]
+      },
+      {
+        "name": "Sep.2024",
+        "values": [
+          "3079.22660653798"
+        ]
+      },
+      {
+        "name": "Oct.2024",
+        "values": [
+          "3284.01766685678"
+        ]
+      },
+      {
+        "name": "Nov.2024",
+        "values": [
+          "3432.89774595125"
+        ]
+      },
+      {
+        "name": "Dic.2024",
+        "values": [
+          "3615.71758043785"
+        ]
+      },
+      {
+        "name": "Ene.2025",
+        "values": [
+          "3072.43624779605"
+        ]
+      },
+      {
+        "name": "Feb.2025",
+        "values": [
+          "2959.0495529567"
+        ]
+      },
+      {
+        "name": "Mar.2025",
+        "values": [
+          "3467.3961907746"
+        ]
+      },
+      {
+        "name": "Abr.2025",
+        "values": [
+          "3397.1022365266"
+        ]
+      },
+      {
+        "name": "May.2025",
+        "values": [
+          "3664.91124379716"
+        ]
+      },
+      {
+        "name": "Jun.2025",
+        "values": [
+          "3452.55079853547"
+        ]
+      },
+      {
+        "name": "Jul.2025",
+        "values": [
+          "3886.96551433094"
+        ]
+      },
+      {
+        "name": "Ago.2025",
+        "values": [
+          "3790.09969323418"
+        ]
+      },
+      {
+        "name": "Sep.2025",
+        "values": [
+          "3958.14366735167"
+        ]
+      },
+      {
+        "name": "Oct.2025",
+        "values": [
+          "4123.57110328018"
+        ]
+      },
+      {
+        "name": "Nov.2025",
+        "values": [
+          "4197.39199651635"
+        ]
+      },
+      {
+        "name": "Dic.2025",
+        "values": [
+          "5066.25502059583"
+        ]
+      },
+      {
+        "name": "Ene.2026",
+        "values": [
+          "4246.93401169446"
+        ]
+      },
+      {
+        "name": "Feb.2026",
+        "values": [
+          "3989.35346264225"
+        ]
+      },
+      {
+        "name": "Mar.2026",
+        "values": [
+          "4866.50019574372"
+        ]
+      },
+      {
+        "name": "Abr.2026",
+        "values": [
+          "4735.06194829"
+        ]
+      },
+      {
+        "name": "May.2026",
+        "values": [
+          "5010.67077008925"
+        ]
+      },
+      {
+        "name": "Jun.2026",
+        "values": [
+          "4760.66162969778"
+        ]
+      }
+    ]
+  },
+  "pulled_at": "2026-08-29"
+}
