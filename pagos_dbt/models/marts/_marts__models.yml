@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: monthly_panel
+    description: >
+      Wide feature matrix: one row per month, one column per BCRP series.
+      The table modelling code reads. Column list is generated from
+      raw.series_metadata at compile time, so it tracks config.py automatically.
+    columns:
+      - name: obs_date
+        description: First day of the month.
+        data_tests:
+          - not_null
+          - unique
+      - name: n_transf_intra_yape
+        description: Yape intrabank transfers — count. Jan 2024 onwards.
+      - name: v_transf_intra_yape
+        description: Yape intrabank transfers — value. Jan 2024 onwards.
+      - name: ipc
+        description: CPI. Available from 2010 in this panel, 1991 at source.
+
+  - name: fct_wallet_metrics
+    description: >
+      Derived Yape/Plin measures — wallet splits, shares, average ticket and
+      month-over-month growth. One row per month from Jan 2024.
+    columns:
+      - name: obs_date
+        data_tests:
+          - not_null
+          - unique
+      - name: n_total
+        description: Total Yape + Plin operations (intrabank + interbank).
+        data_tests:
+          - not_null
+      - name: yape_share_valor
+        description: Yape's share of total Yape+Plin value. Between 0 and 1.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: yape_share_numero
+        description: Yape's share of total Yape+Plin operation count.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: ticket_promedio_raw
+        description: >
+          v_total / n_total. UNITS UNVERIFIED — see the model comment. Do not
+          quote as soles until the BCRP scaling factors are confirmed.
+      - name: n_total_mom
+        description: Month-over-month growth in operation count. NULL in the first month.

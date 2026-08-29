@@ -1,0 +1,48 @@
+version: 2
+
+sources:
+  - name: raw
+    database: pagos-telefono-26
+    schema: raw
+    description: >
+      Append-only landing tables written by the Python ETL
+      (src/data_collection/load_to_bigquery.py). Never written by dbt, and
+      never read by anything downstream except the staging models below.
+
+    tables:
+      - name: bcrp_observations
+        description: >
+          One row per (series, month, pull). Re-pulls APPEND rather than
+          overwrite, so the full revision history is preserved — BCRP revises
+          recently published figures, and overwriting would destroy the
+          evidence that a number changed. De-duplication to "latest pull wins"
+          happens in stg_bcrp_observations.
+        columns:
+          - name: series_code
+            description: BCRP series code, exactly as returned by the API.
+          - name: obs_date
+            description: First day of the observation month.
+          - name: value
+            description: >
+              Observed value. FLOAT64 rather than NUMERIC — these are measured
+              economic quantities, not money summed to the cent.
+          - name: pulled_at
+            description: When this row's snapshot was fetched from the API.
+          - name: source_batch
+            description: Filename in data/raw/bcrp/ that produced this row.
+
+      - name: series_metadata
+        description: >
+          Human-readable labels for each series code. A projection of
+          src/data_collection/config.py, rewritten in full on every load
+          (WRITE_TRUNCATE) so it cannot drift from the source of truth.
+        columns:
+          - name: series_code
+            description: Primary key.
+          - name: col_name
+            description: >
+              Analysis-friendly column name. Convention: n_ = número (count of
+              operations), v_ = valor/monto in soles. These become the column
+              names of marts.monthly_panel.
+          - name: category
+            description: "'target' | 'macro' | 'complementary'"

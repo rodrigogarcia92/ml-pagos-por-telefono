@@ -9,6 +9,12 @@
 # collide with mlflow's. Keeping dbt isolated means neither can break the other.
 # This also mirrors reality — dbt runs as its own process against the warehouse;
 # your Python code never imports it.
+#
+# Why pinned to 1.x: dbt Core v2 (a Rust rewrite sharing the Fusion engine) is
+# out and is still Apache-2.0 and free, but it carries breaking changes. Every
+# tutorial, StackOverflow answer, and workplace codebase you are likely to meet
+# is on 1.x. Learn the version you will be interviewed on; migrate later with
+# `dbt-autofix` if a job ever requires it.
 
-dbt-core
-dbt-bigquery
+dbt-core>=1.8,<2.0
+dbt-bigquery>=1.8,<2.0

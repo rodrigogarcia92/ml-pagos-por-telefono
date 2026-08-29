@@ -1,0 +1,30 @@
+name: 'pagos_dbt'
+version: '1.0.0'
+
+# Must match the profile key in ~/.dbt/profiles.yml (written by `dbt init`).
+profile: 'pagos_dbt'
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  pagos_dbt:
+    # staging: thin, cheap, always fresh. Views cost nothing to store and are
+    # recomputed on read — right for a layer whose only job is cleaning.
+    staging:
+      +materialized: view
+      +schema: staging
+
+    # marts: materialised as tables. They are read repeatedly by modelling code,
+    # and a table is scanned far more cheaply than a view that re-runs a pivot
+    # across 21 series every time someone selects from it.
+    marts:
+      +materialized: table
+      +schema: marts

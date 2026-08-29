@@ -1,0 +1,205 @@
+{
+  "code": "PN42230EM",
+  "api_name": "Sistemas de pagos: LBTR, CCE y SLMV (Monto en Millones de Soles y Número en Miles de Operaciones) - Sistema CCE - Cheques - Número (en miles)",
+  "url": "https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PN42230EM/json/2010-1/2026-12/esp",
+  "response": {
+    "config": {
+      "title": "Sistemas de pagos: LBTR, CCE y SLMV (Monto en Millones de Soles y Número en Miles de Operaciones)",
+      "series": [
+        {
+          "name": "Sistemas de pagos: LBTR, CCE y SLMV (Monto en Millones de Soles y Número en Miles de Operaciones) - Sistema CCE - Cheques - Número (en miles)",
+          "dec": "0"
+        }
+      ]
+    },
+    "periods": [
+      {
+        "name": "Ene.2024",
+        "values": [
+          "116.805"
+        ]
+      },
+      {
+        "name": "Feb.2024",
+        "values": [
+          "105.136"
+        ]
+      },
+      {
+        "name": "Mar.2024",
+        "values": [
+          "100.352"
+        ]
+      },
+      {
+        "name": "Abr.2024",
+        "values": [
+          "117.244"
+        ]
+      },
+      {
+        "name": "May.2024",
+        "values": [
+          "122.381"
+        ]
+      },
+      {
+        "name": "Jun.2024",
+        "values": [
+          "96.541"
+        ]
+      },
+      {
+        "name": "Jul.2024",
+        "values": [
+          "107.641"
+        ]
+      },
+      {
+        "name": "Ago.2024",
+        "values": [
+          "105.479"
+        ]
+      },
+      {
+        "name": "Sep.2024",
+        "values": [
+          "107.569"
+        ]
+      },
+      {
+        "name": "Oct.2024",
+        "values": [
+          "113.449"
+        ]
+      },
+      {
+        "name": "Nov.2024",
+        "values": [
+          "110.303"
+        ]
+      },
+      {
+        "name": "Dic.2024",
+        "values": [
+          "107.014"
+        ]
+      },
+      {
+        "name": "Ene.2025",
+        "values": [
+          "111.527"
+        ]
+      },
+      {
+        "name": "Feb.2025",
+        "values": [
+          "94.024"
+        ]
+      },
+      {
+        "name": "Mar.2025",
+        "values": [
+          "104.733"
+        ]
+      },
+      {
+        "name": "Abr.2025",
+        "values": [
+          "101.222"
+        ]
+      },
+      {
+        "name": "May.2025",
+        "values": [
+          "111.088"
+        ]
+      },
+      {
+        "name": "Jun.2025",
+        "values": [
+          "100.6"
+        ]
+      },
+      {
+        "name": "Jul.2025",
+        "values": [
+          "100.714"
+        ]
+      },
+      {
+        "name": "Ago.2025",
+        "values": [
+          "99.785"
+        ]
+      },
+      {
+        "name": "Sep.2025",
+        "values": [
+          "108.939"
+        ]
+      },
+      {
+        "name": "Oct.2025",
+        "values": [
+          "109.575"
+        ]
+      },
+      {
+        "name": "Nov.2025",
+        "values": [
+          "104.045"
+        ]
+      },
+      {
+        "name": "Dic.2025",
+        "values": [
+          "94.444"
+        ]
+      },
+      {
+        "name": "Ene.2026",
+        "values": [
+          "86.4"
+        ]
+      },
+      {
+        "name": "Feb.2026",
+        "values": [
+          "95.724"
+        ]
+      },
+      {
+        "name": "Mar.2026",
+        "values": [
+          "105.608"
+        ]
+      },
+      {
+        "name": "Abr.2026",
+        "values": [
+          "96.737"
+        ]
+      },
+      {
+        "name": "May.2026",
+        "values": [
+          "105.731"
+        ]
+      },
+      {
+        "name": "Jun.2026",
+        "values": [
+          "98.056"
+        ]
+      },
+      {
+        "name": "Jul.2026",
+        "values": [
+          "100.957"
+        ]
+      }
+    ]
+  },
+  "pulled_at": "2026-08-23"
+}

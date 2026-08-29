@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: stg_bcrp_observations
+    description: >
+      One row per (series, month) — the latest pull wins. This is the only
+      model that reads raw.bcrp_observations; everything else reads this.
+    columns:
+      - name: series_code
+        description: BCRP series code.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_series_metadata')
+                field: series_code
+      - name: obs_date
+        description: First day of the observation month.
+        data_tests:
+          - not_null
+      - name: value
+        description: >
+          Observed value. Nullable on purpose — BCRP returns "n.d." for months
+          it has not published yet, and the parser maps that to NULL rather
+          than inventing a zero.
+      - name: pulled_at
+        data_tests:
+          - not_null
+
+    data_tests:
+      # BigQuery enforces no primary keys. This is the assertion that replaces
+      # one — versioned, reviewable, and re-checked on every build. If the
+      # de-duplication above ever breaks, this test fails loudly instead of
+      # quietly poisoning the feature matrix.
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - series_code
+              - obs_date
+
+  - name: stg_series_metadata
+    description: Series labels and categories, projected from config.py.
+    columns:
+      - name: series_code
+        data_tests:
+          - not_null
+          - unique
+      - name: col_name
+        description: Becomes a column name in marts.monthly_panel.
+        data_tests:
+          - not_null
+          - unique
+      - name: category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['target', 'macro', 'complementary']

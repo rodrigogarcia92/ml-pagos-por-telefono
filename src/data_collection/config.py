@@ -1,7 +1,7 @@
 """Series metadata for this project.
 
 Mirrors the `raw.series_metadata` table defined in docs/data_sources.md —
-keep the two in sync when series are added or the employment series (§6 of
+keep the two in sync when series are added or the employment series (§7 of
 that doc) is resolved.
 """
 
@@ -24,7 +24,7 @@ MACRO_SERIES = [
     {"code": "PN00025MM", "col_name": "dolarizacion_liquidez", "description": "Coeficiente de Dolarización de la Liquidez (%)", "category": "macro", "frequency": "mensual"},
     {"code": "PN00048MM", "col_name": "circulante", "description": "Circulante — Emisión Primaria MN (millones S/)", "category": "macro", "frequency": "mensual"},
     {"code": "PN37696PM", "col_name": "ingreso_formal", "description": "Ingreso promedio sector formal privado — Nominal (S/)", "category": "macro", "frequency": "mensual"},
-    # Empleo: TBD — see docs/data_sources.md §6 (BCRP series look thin, checking INEI ENAHO next)
+    # Empleo: TBD — see docs/data_sources.md §7 (BCRP series look thin, checking INEI ENAHO next)
 ]
 
 # CCE aggregate series — broader payment-system context for Yape/Plin modelling.
@@ -40,6 +40,23 @@ CCE_SERIES = [
 
 ALL_SERIES = TARGET_SERIES + MACRO_SERIES + CCE_SERIES
 
+# How far back to request each category, as BCRP period strings ("YYYY-M").
+#
+# The target series genuinely do not exist before Jan 2024 — the Yape/Plin
+# breakdown starts there. Macro and CCE series have decades of history, and a
+# single shared start date silently truncated them to the target's window,
+# which removed the entire reason for including them: longer history for the
+# panel model, and lagged macro features that predate the target.
+#
+# 2010 covers the full digital-payments era in Peru plus a long pre-Yape
+# baseline, without dragging in structurally different pre-2000 regimes.
+# The API returns whatever exists, so an over-wide window is harmless.
+START_BY_CATEGORY = {
+    "target": "2024-1",
+    "macro": "2010-1",
+    "complementary": "2010-1",
+}
+
 # Lookups keyed by series code — the single source of truth for renaming columns.
 # Naming convention: n_ = número (count of operations), v_ = valor/monto (S/).
 COL_NAME_BY_CODE = {s["code"]: s["col_name"] for s in ALL_SERIES}
@@ -50,3 +67,8 @@ DESCRIPTION_BY_CODE = {s["code"]: s["description"] for s in ALL_SERIES}
 _dupes = {n for n in COL_NAME_BY_CODE.values() if list(COL_NAME_BY_CODE.values()).count(n) > 1}
 if _dupes:
     raise ValueError(f"Duplicate col_name(s) in config: {sorted(_dupes)}")
+
+# Same guard for categories: a typo would silently fall back to the wrong window.
+_unknown = {s["category"] for s in ALL_SERIES} - set(START_BY_CATEGORY)
+if _unknown:
+    raise ValueError(f"No start date configured for category/ies: {sorted(_unknown)}")

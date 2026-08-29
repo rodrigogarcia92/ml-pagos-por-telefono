@@ -16,6 +16,8 @@ pyarrow                     # BigQuery load/read path + parquet in data/interim
 # --- BigQuery ---
 google-cloud-bigquery
 db-dtypes                   # required for .to_dataframe() on DATE/TIME columns
+pandas-gbq                  # silences a FutureWarning; will be REQUIRED by
+                            # load_table_from_dataframe() in a future release
 
 # --- EDA ---
 statsmodels                 # LOWESS in notebooks/01_eda_bcrp.py; SARIMAX later
