@@ -189,7 +189,10 @@ pytest -q
 
 Six tests guard the things that fail *silently* (`training_plan.md` §9.0): calendar
 indexing at h=3, κ enforcement, strict feature-set nesting, the purge gap,
-the MASE identity, and the shuffled-target leak canary.
+the MASE identity, and the shuffled-target leak canary. Since 2026-10-05 the suite also pins
+the wallet window (O-12: the MASE scale, the missing seasonal reference), the seasonal-transfer
+feature (§5.2: factors cannot see anything from 2024-01 on) and the `s4_wallet` spec. A few of
+these log to a **throwaway SQLite store in a temp directory** — never to the server in `.env`.
 
 **A red test blocks the sweep.** A leak found at step 11 invalidates everything
 above it; these run in seconds.
@@ -217,11 +220,11 @@ Sweeps, in the order the protocol requires:
 
 | Sweep | Contents | Time | Gate before the next one |
 |---|---|---|---|
-| `s1_baselines` | 20 parents, five naive variants | ~4 min (GCS artifact uploads dominate) | The floor is in MLflow. **The hurdle is `naive_drift`** (training plan v1.5), not `naive_calendar` |
+| `s1_baselines` | 20 parents, five naive variants. **Re-run under protocol 1.6** on a refreshed snapshot (§12); 1.5 runs are ignored by the resume key and by `report.py` | ~4 min (GCS artifact uploads dominate) | The floor is in MLflow. **The hurdle is `naive_drift`** (training plan v1.5), not `naive_calendar` |
 | `s2_proxy_grid` | 66 parents, Stage A + B | est. 30–45 min at `--jobs 6` (measured: XGBoost ≈ 4.5 min, RF ≈ 5 min, SARIMAX FS2 ≈ 7 min per config) | Check the §5 pre-registered prediction against what happened. **Decide O-10 first** |
 | *holdout* | Stage C, selected config | seconds | **Once. Ever.** |
 | `s3_w2021` | 12 parents, sensitivity | ~20 min | |
-| `s4_wallet` | 18 parents, wallet + transfer test | ~10 min | |
+| `s4_wallet` | **30 parents** (plan §7.2 reconciles the old "18"): five naive variants + Ridge + XGBoost on `FS0/1/2_short` and the transfer sets `FS1s/FS2s_short`, reduced grids | ~10 min | Does **not** depend on `s2` or on a winner. Read `evaluation_status` before quoting anything |
 
 Interrupting a sweep is safe: it skips runs that already finished with the same
 tag set, so restarting resumes rather than duplicating.
@@ -230,7 +233,12 @@ A single configuration, without the sweep wrapper:
 
 ```powershell
 python -m src.model_training.train --model xgboost --target t2 --horizon 1 --window w2019 --feature-set FS3_activity --stage cv
+python -m src.model_training.train --model xgboost --target t4 --horizon 1 --window w2024 --feature-set FS2s_short --stage cv
 ```
+
+The CLI needs nothing from `configs/models/*.yaml` (nothing reads them; `--model` goes straight to
+`registry.MODELS`). On `w2024` it uses the reduced grids in `registry.W2024_GRIDS` (Ridge, XGBoost only;
+any other family raises there).
 
 ---
 
@@ -243,6 +251,19 @@ python -m src.model_training.report --target t2 --horizon 1 --window w2019
 ```
 
 `skill_drift <= 0` means persistence-plus-trend was not beaten. `--protocol 1.4` ranks an earlier protocol.
+
+The table has an **`evaluation_status`** column: `demonstration` means fewer than 8 outer folds, i.e. the run shows
+the pipeline works and **ranks nothing** (plan §6.4 rule 4). For the wallet targets:
+
+```powershell
+python -m src.model_training.report --target t4 --horizon 1 --window w2024
+python -m src.model_training.report --target t5 --horizon 3 --window w2024
+```
+
+`w2024` MASE is scaled by the **random walk**, not the seasonal naive (plan §6.3, O-12; param `mase_scale_period` = 1),
+so it is only comparable with other `w2024` runs. Check `n_folds_nan_metric = 0` on a parent before trusting its mean.
+The seasonal-transfer comparison is **same model, same target, `FS1_short` vs `FS1s_short` and `FS2_short` vs
+`FS2s_short`**, read as pre-registered in plan §5.2 (Ridge is expected to show ~nothing; XGBoost at both horizons is the test).
 
 The UI to browse. For anything comparative, a notebook:
 
@@ -324,3 +345,39 @@ only on the development machine — back it up, §9), `data/processed/` (rebuild
 and any service-account key (none exists).
 
 Commit data pulls on their own, separate from code: `data: BCRP pull YYYY-MM-DD`.
+
+---
+
+## 12. Protocol 1.6 re-run — `s1`, `s2`, `s4`, in this order
+
+Everything below needs a **snapshot taken after the 2026-10-05 pull** (`data/raw/bcrp/2026-10-05_*`, already committed).
+The old `panel_20260905…` snapshot still works but is one month short and pre-dates the pull the plan's numbers assume.
+
+```powershell
+# environment: §1 (.venv).  Warehouse + snapshot: 
+python -m src.data_collection.load_to_bigquery --dry-run     # expect new rows for 2026-07; then without --dry-run
+deactivate; .\.venv-dbt\Scripts\Activate.ps1; cd pagos_dbt; dbt build; cd ..; deactivate; .\.venv\Scripts\Activate.ps1
+python -m src.model_training.snapshot                        # new data_version in the filename
+
+.\scripts\start_mlflow.ps1                                   # terminal one; second terminal for everything below
+pytest -q                                                    # all green, or stop
+Copy-Item mlflow/mlflow.db "mlflow/mlflow_$(Get-Date -Format yyyyMMdd_HHmm).db"
+
+# Dry-runs first. The counts are part of the protocol: 20, 66, 30. The `snapshot :` line must name the NEW file.
+python -m src.model_training.sweep --config configs/sweeps/s1_baselines.yaml --dry-run
+python -m src.model_training.sweep --config configs/sweeps/s2_proxy_grid.yaml --dry-run
+python -m src.model_training.sweep --config configs/sweeps/s4_wallet.yaml --dry-run
+
+python -m src.model_training.sweep --config configs/sweeps/s1_baselines.yaml --jobs 4   # the floor, protocol 1.6
+python -m src.model_training.sweep --config configs/sweeps/s2_proxy_grid.yaml --jobs 6  # hours; overnight
+python -m src.model_training.sweep --config configs/sweeps/s4_wallet.yaml --jobs 4      # independent of s2
+```
+
+Notes.
+
+- `s4_wallet` could run before `s2`: it uses no winner and no `s2` output (plan §5.2). `s1` first is still the convention, because it
+  is the quickest end-to-end check that the new snapshot and the 1.6 windows behave.
+- **Not in this runbook yet, on purpose:** winner selection, the Stage C holdout and `s3_w2021`. The holdout is evaluated once, ever.
+- After the snapshot exists, fill the TODO fold-count tables in plan §2 / §6.2 from `Frame` (`len(X)`, `target_start`, `target_end`), not by hand.
+- If a wallet config **fails** in `s4` rather than finishing, read the `FAILED:` line before re-running: `fit_config` refuses (never skips)
+  a test origin without a seasonal reference, and refuses `seas_transfer` on any window that would leak it.
