@@ -1,0 +1,60 @@
+# s0_smoke -- the first real sweep. 9 parent runs, seconds to complete.
+#
+# NOT a throwaway. Five of the nine ARE Target 1, the pre-registered floor that
+# every one of the ~116 later models is judged against, and the protocol
+# requires them to exist in MLflow before any model runs (training_plan.md 3,
+# execution order step 5). So the infrastructure test and the scientific floor
+# are the same runs.
+#
+# The other four are the cheapest honest models -- ridge and xgboost on the two
+# smallest feature sets -- which exercise the tuning path, the scaler-inside-the-
+# fold path, and the artifact path that the naive models skip.
+#
+# WHAT TO LOOK FOR, in order:
+#   1. All 9 finish. 29 folds each at h=1 on w2019.
+#   2. naive_last MASE is roughly 1. It is a random walk against a seasonal
+#      naive reference, so anything wildly off means the metric is wrong, not
+#      the model.
+#   3. naive_calendar beats naive_seasonal. Month-length adjustment is free
+#      information; if it does not help, check the h=3 calendar indexing.
+#   4. ridge/xgboost against naive_calendar. If they lose, that is a FINDING
+#      and it gets reported -- not a reason to keep tuning until they win.
+#
+# BLOCKED ON O-9. If the payments publication lag turns out to be 2 months, the
+# anchor in section 1.1 moves and every number here changes. Treat this run as
+# an infrastructure test until O-9 closes.
+
+name: s0_smoke
+
+targets:  [t2]
+horizons: [1]
+windows:  [w2019]
+stage:    cv
+
+models:
+  - naive_last
+  - naive_drift
+  - naive_seasonal
+  - naive_seasdrift
+  - naive_calendar
+  - ridge
+  - xgboost
+
+feature_sets:
+  - FS1_autoregressive
+  - FS2_cash
+
+# Narrowed search spaces. The full grids in registry.py are for s2_proxy_grid;
+# here the point is that the tuning PATH works, not that the hyperparameters
+# are optimal.
+tune:
+  ridge:
+    alpha: [0.01, 0.1, 1.0, 10.0, 100.0]
+  xgboost:
+    max_depth: [2, 3]
+    learning_rate: [0.05, 0.1]
+    n_estimators: [200]
+    subsample: [1.0]
+    colsample_bytree: [0.8]
+    min_child_weight: [1]
+    reg_lambda: [1, 10]

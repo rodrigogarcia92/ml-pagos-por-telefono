@@ -1,0 +1,29 @@
+# Constants shared by every run. Anything here is logged as an MLflow param, so
+# a value that changed between two runs is visible in the comparison table
+# rather than hidden in a diff.
+
+seed: 26
+
+# Per window -- a flat 36 leaves 5 folds on w2021 and zero on w2024 at h=3.
+# Source of truth is splits.MIN_TRAIN; repeated here for readability only.
+min_train:
+  w2019: 36
+  w2021: 24
+  w2024: 12
+
+# Evaluated ONCE, for the selected configuration only (training_plan.md 6.1).
+# w2024 gets 6 rather than 12: a 12-month holdout on a 30-month window leaves
+# nothing to select on.
+holdout_months:
+  w2019: 12
+  w2021: 12
+  w2024: 6
+
+# Fixed before the first run. Retrofitting a metric definition after seeing
+# results is how honest analysis quietly becomes p-hacking.
+primary_metric: mase
+report_metrics: [mase, skill_h, mae, rmse, mape]
+
+# Stage A caps inner folds. Trades a little selection precision for an order of
+# magnitude of wall clock; logged as n_inner_folds in tuning_results.csv.
+max_inner_folds: 10

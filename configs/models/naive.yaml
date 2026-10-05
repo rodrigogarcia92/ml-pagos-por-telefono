@@ -1,0 +1,4 @@
+model_family: naive_calendar
+encoding: none
+# No features, nothing to tune. THE HURDLE every other model is judged against.
+tune: {}

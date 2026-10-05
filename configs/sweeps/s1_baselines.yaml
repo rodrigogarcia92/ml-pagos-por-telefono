@@ -1,0 +1,42 @@
+# s1_baselines -- Target 1, the pre-registered floor. 20 parent runs, seconds.
+#
+# Five naive variants x two targets (t2 = h1, t3 = h3) x two windows.
+# training_plan.md section 3 Target 1, and execution order step 5.
+#
+# THIS IS THE GATE. Nothing in s2_proxy_grid means anything until these exist,
+# because every model in the grid is reported against naive_calendar. Running
+# the floor first is what stops the goalposts moving later.
+#
+# Note there is no `horizons` key: t2 and t3 ARE the horizons. Crossing them
+# independently would produce a run tagged t2/h=3, which is t3 under a false
+# name -- sweep.py rejects that rather than logging it.
+#
+# WHAT TO READ WHEN IT FINISHES
+#
+#   naive_last vs naive_seasonal. On a series growing ~40x, "last month" should
+#   crush "same month last year". If it does not, suspect the anchor.
+#
+#   naive_drift vs naive_calendar. The plan designates naive_calendar as the
+#   hurdle, but that was written before anyone measured the drift. If
+#   naive_drift wins clearly, the hurdle should change -- and that is a section
+#   11 deviation WITH EVIDENCE, which is the only kind worth making.
+#
+#   h=1 vs h=3. MASE is deliberately comparable across horizons (shared m=12
+#   denominator), so t3 should be visibly worse than t2. If it is not, check
+#   the purge gap.
+#
+#   w2019 vs w2021. Different min_train (36 vs 24) and different fold counts,
+#   so read them as two separate experiments, never as one table.
+
+name: s1_baselines
+
+targets:  [t2, t3]
+windows:  [w2019, w2021]
+stage:    cv
+
+models:
+  - naive_last
+  - naive_drift
+  - naive_seasonal
+  - naive_seasdrift
+  - naive_calendar

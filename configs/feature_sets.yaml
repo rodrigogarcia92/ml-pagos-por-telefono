@@ -1,0 +1,64 @@
+# Feature sets, as EXPLICIT column lists. Strictly nested: FS0 subset FS1 ... FS5.
+#
+# Declared here rather than assembled by string logic in dataset.py, because the
+# nesting IS the ablation argument -- the delta between consecutive sets is
+# attributable to exactly one block. Emergent nesting cannot be tested; test T3
+# asserts set(FS_k) is a strict subset of set(FS_k+1) for every consecutive pair.
+#
+# Column counts are the TREE representation (cal_month as one integer). The
+# linear representation replaces cal_month with 11 dummies, so add 10.
+# See docs/training_plan.md 4.4 and 5.
+
+FS0_calendar: &fs0                      # 6 tree / 16 linear
+  - cal_days
+  - cal_weekend_days
+  - cal_holidays
+  - cal_month
+  - d_covid_collapse
+  - d_covid_rebound
+
+# OWN HISTORY STARTS AT LAG kappa, NOT LAG 1.  Revised 2026-09-05 (O-9).
+# The payments kappa moved 1 -> 2, so n_{t-1} is not published at forecast time
+# and y_d1 is inadmissible -- dataset.py refuses to build it. The ladder shifts
+# to lags kappa, kappa+1, then 12, which is EXACTLY the truncation already
+# applied to pbi_idx (kappa=2 -> pbi_d2, pbi_d3, pbi_d12). One rule, not two.
+# Own history is therefore 5 columns, not 6, and every set below shifts by one.
+FS1_autoregressive: &fs1                # 11 -- how much is persistence?
+  - *fs0
+  - [y_d2, y_d3, y_d12, y_ma3, y_ma12]
+
+FS2_cash: &fs2                          # 17 -- DOES CASH SUBSTITUTION PAY?
+  - *fs1
+  - [circ_d1, circ_d2, circ_d3, circ_d12, circ_ma3, circ_ma12]
+
+FS3_activity: &fs3                      # 22 -- pbi_idx has kappa=2, so no _d1
+  - *fs2
+  - [pbi_d2, pbi_d3, pbi_d12, pbi_ma3, pbi_ma12]
+
+FS4_prices: &fs4                        # 28
+  - *fs3
+  - [ipc_d1, ipc_d2, ipc_d3, ipc_d12, ipc_ma3, ipc_ma12]
+
+FS5_macro_full: &fs5                    # 53 -- at p ~ n, deliberately
+  - *fs4
+  - [tc_d0, tc_d1, tc_d2, tc_d3, tc_d12, tc_ma3, tc_ma12]
+  - [ing_d2, ing_d3, ing_d12, ing_ma3, ing_ma12]
+  - [tasa_d0, tasa_d1, tasa_d2, tasa_d3, tasa_d12, tasa_ma3, tasa_ma12]
+  - [dol_d1, dol_d2, dol_d3, dol_d12, dol_ma3, dol_ma12]
+
+FS5b_stance:                            # 55 -- impulse vs stance
+  - *fs5
+  - [tasa_referencia_lvl, dolarizacion_lvl]
+
+# --- w2024 only. A t-13 history requirement costs 43% of a 30-month window,
+# --- which is the difference between 8 usable folds and none. Dropping the
+# --- 12-month terms is also what makes the seasonal-transfer test a real
+# --- comparison rather than a redundant one (training_plan.md 5.1).
+FS0_short: *fs0
+FS1_short:
+  - *fs0
+  - [y_d2, y_d3, y_ma3]
+FS2_short:
+  - *fs0
+  - [y_d2, y_d3, y_ma3]
+  - [circ_d1, circ_d2, circ_d3, circ_ma3]
