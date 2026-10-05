@@ -27,6 +27,13 @@ against the seasonal naive, simply predicting no change already scores about
 beyond the anchor, and only a comparison against the random walk shows that.
 Reported alongside, never instead of -- skill_h is what the protocol
 pre-registered.
+
+    skill_drift  1 - MAE_model / MAE_naive_drift, same derivation. THE HURDLE.
+               s1_baselines (20 runs, both horizons, both windows) ranks naive_drift
+               first in every cell, and naive_calendar -- the plan's original
+               hurdle -- last, indistinguishable from naive_seasonal. A model has
+               to beat THIS column to have beaten anything (training_plan.md O-11,
+               section 11).
 """
 
 from __future__ import annotations
@@ -43,14 +50,18 @@ COLS = ["model_family", "feature_set", "window", "n_folds",
         "mase_mean", "mase_std", "skill_h_mean", "mae_mean", "mape_mean"]
 
 
-def fetch(target: str, horizon: int, stage: str = "cv") -> pd.DataFrame:
+def fetch(target: str, horizon: int, stage: str = "cv",
+          protocol: str = tracking.PROTOCOL_VERSION) -> pd.DataFrame:
     exp = f"{tracking.EXPERIMENT_PREFIX}{target}_h{horizon}"
     runs = mlflow.search_runs(
         experiment_names=[exp],
-        filter_string=f"tags.stage = '{stage}' and attributes.status = 'FINISHED'",
+        # protocol_version: runs from an earlier protocol are not comparable (the
+        # 1.3 s0_smoke runs, for one, never actually tuned) and must not be ranked.
+        filter_string=(f"tags.stage = '{stage}' and attributes.status = 'FINISHED' "
+                       f"and tags.protocol_version = '{protocol}'"),
     )
     if runs.empty:
-        raise SystemExit(f"No finished '{stage}' runs in {exp}.")
+        raise SystemExit(f"No finished '{stage}' runs under protocol {protocol} in {exp}.")
 
     # Parents only. Children are folds and carry no aggregate metrics.
     runs = runs[runs["metrics.mase_mean"].notna()].copy()
@@ -69,17 +80,26 @@ def fetch(target: str, horizon: int, stage: str = "cv") -> pd.DataFrame:
     return out.sort_values(["window", "mase_mean"]).reset_index(drop=True)
 
 
+def _add_skill(df: pd.DataFrame, ref_family: str, col: str) -> pd.DataFrame:
+    """Skill against a reference baseline, per window, from that run's mean MAE."""
+    df = df.copy()
+    df[col] = pd.NA
+    for _, block in df.groupby("window"):
+        ref = block.loc[block["model_family"] == ref_family, "mae_mean"]
+        if ref.empty:
+            continue  # reference not run for this window; leave blank, don't guess
+        df.loc[block.index, col] = 1.0 - block["mae_mean"] / float(ref.iloc[0])
+    return df
+
+
 def add_skill_rw(df: pd.DataFrame) -> pd.DataFrame:
     """Skill against the random walk, per window, using naive_last's MAE."""
-    df = df.copy()
-    df["skill_rw"] = pd.NA
-    for window, block in df.groupby("window"):
-        rw = block.loc[block["model_family"] == "naive_last", "mae_mean"]
-        if rw.empty:
-            continue  # naive_last not run for this window; leave blank, don't guess
-        base = float(rw.iloc[0])
-        df.loc[block.index, "skill_rw"] = 1.0 - block["mae_mean"] / base
-    return df
+    return _add_skill(df, "naive_last", "skill_rw")
+
+
+def add_skill_drift(df: pd.DataFrame) -> pd.DataFrame:
+    """Skill against persistence-plus-trend, using naive_drift's MAE. The hurdle."""
+    return _add_skill(df, "naive_drift", "skill_drift")
 
 
 def detail(target: str, horizon: int, top: pd.DataFrame, stage: str) -> None:
@@ -160,17 +180,20 @@ def main() -> None:
     ap.add_argument("--horizon", type=int, required=True)
     ap.add_argument("--window", default=None, help="Filter to one window.")
     ap.add_argument("--stage", default="cv", choices=["cv", "holdout"])
+    ap.add_argument("--protocol", default=tracking.PROTOCOL_VERSION,
+                    help="protocol_version tag to rank (default: current).")
     ap.add_argument("--csv", default=None, help="Also write the table here.")
     ap.add_argument("--detail", type=int, default=0, metavar="N",
                     help="Also print full provenance for the top N runs.")
     a = ap.parse_args()
 
-    df = add_skill_rw(fetch(a.target, a.horizon, a.stage))
+    df = add_skill_drift(add_skill_rw(fetch(a.target, a.horizon, a.stage, a.protocol)))
     if a.window:
         df = df[df["window"] == a.window]
 
     show = df[["model_family", "feature_set", "window", "n_folds",
-               "mase_mean", "mase_std", "skill_h_mean", "skill_rw", "mape_mean"]]
+               "mase_mean", "mase_std", "skill_h_mean", "skill_rw", "skill_drift",
+               "mape_mean"]]
     with pd.option_context("display.float_format", lambda v: f"{v:8.3f}"):
         print(f"\n{a.target} h={a.horizon}  stage={a.stage}  "
               f"(ranked by MASE, lower is better)\n")
@@ -179,7 +202,8 @@ def main() -> None:
     print("\n  mase_std matters as much as mase_mean: a model that wins on average")
     print("  by being wildly variable is not a better model.")
     print("  skill_h is measured against the SEASONAL naive; skill_rw against the")
-    print("  RANDOM WALK. On this series the second is the demanding one.\n")
+    print("  RANDOM WALK; skill_drift against the DRIFT baseline -- the hurdle. A model")
+    print("  with skill_drift <= 0 has not beaten persistence plus trend.\n")
 
     if a.detail:
         detail(a.target, a.horizon, show.head(a.detail), a.stage)

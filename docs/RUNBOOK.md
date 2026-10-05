@@ -207,15 +207,18 @@ python -m src.model_training.sweep --config configs/sweeps/s1_baselines.yaml --d
 Then for real:
 
 ```powershell
-python -m src.model_training.sweep --config configs/sweeps/s1_baselines.yaml
+python -m src.model_training.sweep --config configs/sweeps/s1_baselines.yaml --jobs 4
 ```
+
+`--jobs N` fits N configurations in parallel; **all MLflow writes stay in the parent process** (SQLite, one
+writer). Omit it for a sequential run.
 
 Sweeps, in the order the protocol requires:
 
 | Sweep | Contents | Time | Gate before the next one |
 |---|---|---|---|
-| `s1_baselines` | 20 parents, five naive variants | seconds | `naive_calendar` is in MLflow — the floor exists |
-| `s2_proxy_grid` | 66 parents, Stage A + B | 1–3 h | Check the §5 pre-registered prediction against what happened |
+| `s1_baselines` | 20 parents, five naive variants | ~4 min (GCS artifact uploads dominate) | The floor is in MLflow. **The hurdle is `naive_drift`** (training plan v1.5), not `naive_calendar` |
+| `s2_proxy_grid` | 66 parents, Stage A + B | est. 30–45 min at `--jobs 6` (measured: XGBoost ≈ 4.5 min, RF ≈ 5 min, SARIMAX FS2 ≈ 7 min per config) | Check the §5 pre-registered prediction against what happened. **Decide O-10 first** |
 | *holdout* | Stage C, selected config | seconds | **Once. Ever.** |
 | `s3_w2021` | 12 parents, sensitivity | ~20 min | |
 | `s4_wallet` | 18 parents, wallet + transfer test | ~10 min | |
@@ -226,12 +229,20 @@ tag set, so restarting resumes rather than duplicating.
 A single configuration, without the sweep wrapper:
 
 ```powershell
-python -m src.model_training.train --config configs/models/xgboost.yaml --target t2 --horizon 1 --window w2019 --feature-set FS3_activity --stage cv
+python -m src.model_training.train --model xgboost --target t2 --horizon 1 --window w2019 --feature-set FS3_activity --stage cv
 ```
 
 ---
 
 ## 8. Read the results
+
+The ranking table, with the hurdle column (`skill_drift`), filtered to the current protocol:
+
+```powershell
+python -m src.model_training.report --target t2 --horizon 1 --window w2019
+```
+
+`skill_drift <= 0` means persistence-plus-trend was not beaten. `--protocol 1.4` ranks an earlier protocol.
 
 The UI to browse. For anything comparative, a notebook:
 
