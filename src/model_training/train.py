@@ -373,6 +373,16 @@ def log_config(fit: FitResult) -> RunResult:
             "window_target_end": f"{frame.target_end:%Y-%m}",
             "seed": SEED,
         })
+        if frame.seas_transfer:
+            # Plan 5.2: where the factors came from and the cutoff, on every run
+            # that uses them. The twelve values go into features.json below.
+            st = frame.seas_transfer
+            mlflow.log_params({
+                "seas_transfer_source": st["source"],
+                "seas_transfer_first_target": st["first_target"],
+                "seas_transfer_cutoff": st["cutoff"],          # exclusive
+                "seas_transfer_excludes": st["excludes"],
+            })
 
         # Populates MLflow's Datasets tab, which is empty otherwise. It records
         # WHICH rows this run saw -- name, digest, and the snapshot path as
@@ -413,6 +423,7 @@ def log_config(fit: FitResult) -> RunResult:
                 fit.tuning_table.to_csv(d / "tuning_results.csv", index=False)
             (d / "features.json").write_text(json.dumps({
                 "columns": list(frame.X.columns), "dropped": frame.dropped,
+                **({"seas_transfer": frame.seas_transfer} if frame.seas_transfer else {}),
             }, indent=2))
             (d / "folds.json").write_text(json.dumps(
                 [{"fold": f.index, "train": f.train.tolist(), "test": f.test.tolist()}

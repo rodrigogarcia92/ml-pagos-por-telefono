@@ -756,3 +756,133 @@ def test_report_shows_the_evaluation_status_column(local_mlflow, wallet_panel):
     assert "evaluation_status" in df.columns
     got = dict(zip(df["model_family"], zip(df["n_folds"], df["evaluation_status"])))
     assert got == {"naive_drift": (8, "evaluation"), "ridge": (5, "demonstration")}
+
+
+# --------------------------------------------------------------------------- #
+# Seasonal-transfer test (plan 5.2) -- seas_transfer, FS1s_short, FS2s_short
+# --------------------------------------------------------------------------- #
+def test_seas_transfer_sets_nest_strictly_over_their_parents():
+    """T3, extended: FS_k_short is a strict subset of FS_ks_short, and the pair differs
+    by exactly the one column -- that is what lets the delta be attributed to it."""
+    fs = load_feature_sets()
+    for parent, child in [("FS1_short", "FS1s_short"), ("FS2_short", "FS2s_short")]:
+        assert set(fs[parent]) < set(fs[child])
+        assert set(fs[child]) - set(fs[parent]) == {"seas_transfer"}
+        assert len(fs[child]) == len(set(fs[child])) == len(fs[parent]) + 1
+    assert set(fs["FS1s_short"]) < set(fs["FS2s_short"])
+    assert set(fs["FS0_short"]) < set(fs["FS1s_short"])
+    # It belongs to the transfer sets only: never smuggled into a control.
+    others = [k for k in fs if k not in ("FS1s_short", "FS2s_short")]
+    assert not [k for k in others if "seas_transfer" in fs[k]]
+    # ...and, like the other short sets, carries no 12-month term.
+    assert not [c for c in fs["FS2s_short"] if c.endswith(("_d12", "_ma12"))]
+
+
+def test_seas_transfer_factors_sum_to_zero_and_recover_the_known_pattern(wallet_panel):
+    p, _ = wallet_panel
+    f = dataset.seasonal_transfer_factors(p)
+    assert list(f.index) == list(range(1, 13))
+    assert f.sum() == pytest.approx(0.0, abs=1e-12)
+    # The fixture's level has a known month shape; the factor is the demeaned
+    # month-on-month DIFFERENCE of it (it is a Delta-log), up to sampling noise.
+    expected = SEAS_PATTERN - np.roll(SEAS_PATTERN, 1)           # month m minus month m-1
+    assert np.allclose(f.to_numpy(), expected - expected.mean(), atol=0.02)
+
+
+def test_seas_transfer_factors_ignore_everything_from_the_cutoff(wallet_panel):
+    """THE leak test. Scramble the aggregate from 2024-01 on (the months every wallet
+    fold lives in), before 2019, and inside the COVID pulse: the factors do not move.
+    Scramble one month inside the sample and they do -- so the test can fail."""
+    p, _ = wallet_panel
+    base = dataset.seasonal_transfer_factors(p)
+    rng = np.random.default_rng(99)
+
+    def scrambled(mask):
+        q = p.copy()
+        q.loc[mask, dataset.SEAS_TRANSFER_SOURCE] *= np.exp(rng.standard_normal(int(mask.sum())))
+        return dataset.seasonal_transfer_factors(q)
+
+    idx = p.index
+    for mask in (idx >= dataset.SEAS_TRANSFER_CUTOFF,
+                 idx < dataset.SEAS_TRANSFER_FIRST_TARGET - pd.DateOffset(months=1),
+                 (idx >= "2020-03-01") & (idx <= "2020-08-01")):
+        assert scrambled(np.asarray(mask)).equals(base)
+    assert not scrambled(np.asarray(idx == "2022-05-01")).equals(base)
+
+
+@pytest.mark.parametrize("target", ["t4", "t5"])
+def test_seas_transfer_is_indexed_at_the_target_month(wallet_panel, target):
+    h = dataset.TARGETS[target]["horizon"]
+    p, _ = wallet_panel
+    f = _wallet(wallet_panel, target, ["cal_month", "seas_transfer"])
+    factors = dataset.seasonal_transfer_factors(p)
+    tgt_month = (f.X.index + pd.DateOffset(months=h - 2)).month
+    assert (f.X["cal_month"].to_numpy() == tgt_month.to_numpy()).all()
+    assert np.allclose(f.X["seas_transfer"].to_numpy(), factors.loc[tgt_month].to_numpy())
+    # The h=3 trap, as in T1: a February target gets February's factor even though the
+    # origin is January.
+    feb = np.flatnonzero(tgt_month == 2)
+    assert len(feb) and (f.X["seas_transfer"].to_numpy()[feb] == factors.loc[2]).all()
+
+
+def test_seas_transfer_uses_the_aggregate_and_records_its_provenance(wallet_panel):
+    p, _ = wallet_panel
+    for target in ("t4", "t5"):
+        f = _wallet(wallet_panel, target, load_feature_sets()["FS2s_short"])
+        assert f.seas_transfer["source"] == "n_transf_intra_agg"
+        assert f.seas_transfer["first_target"] == "2019-01"
+        assert f.seas_transfer["cutoff"] == "2024-01"
+        assert f.seas_transfer["excludes"] == "2020-03..2020-09"
+        want = dataset.seasonal_transfer_factors(p)
+        assert np.allclose([f.seas_transfer["factors"][m] for m in range(1, 13)], want.to_numpy())
+    assert _wallet(wallet_panel, "t4", load_feature_sets()["FS1_short"]).seas_transfer is None
+
+
+def test_seas_transfer_changes_columns_not_rows(wallet_panel):
+    """Same rows with and without it, so a with/without comparison runs on the same folds."""
+    fs = load_feature_sets()
+    for target in ("t4", "t5"):
+        a = _wallet(wallet_panel, target, fs["FS1_short"])
+        b = _wallet(wallet_panel, target, fs["FS1s_short"])
+        assert a.X.index.equals(b.X.index) and a.y.equals(b.y)
+        assert b.X.shape[1] == a.X.shape[1] + 1
+
+
+@pytest.mark.parametrize("window", ["w2019", "w2021"])
+def test_seas_transfer_is_refused_where_it_would_leak(synthetic, window):
+    panel, meta = synthetic
+    with pytest.raises(ValueError, match="only admissible"):
+        dataset.build(panel, meta, target_id="t2", horizon=1, window=window,
+                      columns=["cal_days", "seas_transfer"], encoding="int")
+
+
+def test_seas_transfer_runs_log_their_factor_source_and_cutoff(local_mlflow, wallet_panel):
+    """Every run that uses the feature carries its source and cutoff as params; a run
+    that does not use it carries none."""
+    import json
+    from pathlib import Path
+
+    import mlflow
+    from src.model_training.train import RunConfig
+
+    snap = _snapshot_files(local_mlflow, wallet_panel)
+    with_t = RunConfig("t4", 1, "w2024", "ridge", "FS1s_short", snapshot=snap,
+                       tune={"alpha": [1.0, 10.0]})
+    without = RunConfig("t4", 1, "w2024", "ridge", "FS1_short", snapshot=snap,
+                        tune={"alpha": [1.0, 10.0]})
+    _, _, r1 = _log(with_t, local_mlflow)
+    _, _, r0 = _log(without, local_mlflow)
+
+    pr = mlflow.get_run(r1.run_id).data.params
+    assert pr["seas_transfer_source"] == "n_transf_intra_agg"
+    assert pr["seas_transfer_cutoff"] == "2024-01"
+    assert pr["seas_transfer_first_target"] == "2019-01"
+    assert pr["seas_transfer_excludes"] == "2020-03..2020-09"
+    assert int(pr["n_features"]) == int(mlflow.get_run(r0.run_id).data.params["n_features"]) + 1
+    assert not [k for k in mlflow.get_run(r0.run_id).data.params if k.startswith("seas_transfer")]
+
+    path = mlflow.artifacts.download_artifacts(run_id=r1.run_id, artifact_path="features.json")
+    feats = json.loads(Path(path).read_text())
+    assert "seas_transfer" in feats["columns"]
+    assert len(feats["seas_transfer"]["factors"]) == 12
+    assert sum(feats["seas_transfer"]["factors"].values()) == pytest.approx(0.0, abs=1e-9)

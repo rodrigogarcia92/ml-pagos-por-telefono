@@ -62,6 +62,17 @@ WINDOWS = {
     "w2024": "2024-01-01",
 }
 
+# Seasonal-transfer factors (training_plan.md 5.2, pre-registered 2026-10-05).
+# Month-of-year mean of the t2 target (dlog of the aggregate) over TARGET months
+# first <= tau < cutoff, minus the COVID pulse months, demeaned to sum to zero.
+# Measured on the aggregate -- never on a fitted model, and never on any month
+# the wallet windows forecast, which is what makes it leak-free for every fold.
+# Changing any of these four is a protocol change (1.7), not an edit.
+SEAS_TRANSFER_SOURCE = "n_transf_intra_agg"
+SEAS_TRANSFER_FIRST_TARGET = pd.Timestamp("2019-01-01")
+SEAS_TRANSFER_CUTOFF = pd.Timestamp("2024-01-01")           # exclusive
+SEAS_TRANSFER_EXCLUDE = (pd.Timestamp("2020-03-01"), pd.Timestamp("2020-09-01"))  # inclusive
+
 # Peru national holidays with fixed dates. Movable feasts (Jueves and Viernes
 # Santo) are derived from Easter below. Aug 6 (Batalla de Junin) became a
 # national holiday in 2024 and is handled by the year guard.
@@ -121,6 +132,26 @@ def _calendar_frame(months: pd.DatetimeIndex) -> pd.DataFrame:
     return pd.DataFrame(rows, index=months)
 
 
+def seasonal_transfer_factors(panel: pd.DataFrame) -> pd.Series:
+    """The twelve month-of-year factors, index 1..12, summing to zero (plan 5.2).
+
+    Reads ONLY target months in [SEAS_TRANSFER_FIRST_TARGET, SEAS_TRANSFER_CUTOFF)
+    outside the COVID pulse, so nothing at or after the cutoff can move it --
+    pinned by test_seas_transfer_factors_ignore_everything_from_the_cutoff.
+    """
+    dlog = np.log(panel[SEAS_TRANSFER_SOURCE]).diff()     # indexed at the target month
+    tau = dlog.index
+    covid = (tau >= SEAS_TRANSFER_EXCLUDE[0]) & (tau <= SEAS_TRANSFER_EXCLUDE[1])
+    use = (tau >= SEAS_TRANSFER_FIRST_TARGET) & (tau < SEAS_TRANSFER_CUTOFF) & ~covid
+    d = dlog[use]
+    if d.isna().any():
+        raise ValueError(f"{SEAS_TRANSFER_SOURCE} has gaps in the seasonal-transfer sample")
+    by_month = d.groupby(d.index.month).mean()
+    if len(by_month) != 12:
+        raise ValueError(f"seasonal-transfer sample covers {len(by_month)} calendar months, not 12")
+    return by_month - by_month.mean()
+
+
 def _diff(series: pd.Series, transform: str) -> pd.Series:
     if transform == "log_diff":
         return np.log(series).diff()
@@ -148,6 +179,9 @@ class Frame:
     dropped: list[str]     # columns removed as all-null or zero-variance
     target_start: pd.Timestamp | None = None   # first TARGET month in the frame
     target_end: pd.Timestamp | None = None     # last TARGET month in the frame
+    # Provenance of `seas_transfer` when it is a column (else None): where the
+    # factors came from, the cutoff, and the twelve values. Logged by train.py.
+    seas_transfer: dict | None = None
 
 
 def load_snapshot(panel_path: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -234,9 +268,33 @@ def build(
 
     # --- assemble requested columns -----------------------------------------
     feats: dict[str, pd.Series] = {}
+    transfer: dict | None = None
     for name in columns:
         if name in cal.columns:
             feats[name] = cal[name]
+            continue
+        if name == "seas_transfer":
+            # Deterministic, so indexed at the TARGET month like the calendar block.
+            # THE GUARD: the factors are measured on target months before the
+            # cutoff, so a window that starts earlier would be scoring its own
+            # training data with them. Refuse rather than leak.
+            if pd.Timestamp(WINDOWS[window]) < SEAS_TRANSFER_CUTOFF:
+                raise ValueError(
+                    f"seas_transfer is only admissible on windows starting at or after "
+                    f"{SEAS_TRANSFER_CUTOFF:%Y-%m}; {window} starts {WINDOWS[window][:7]} "
+                    "and would score months its own factors were measured on."
+                )
+            factors = seasonal_transfer_factors(panel)
+            feats[name] = pd.Series(
+                factors.reindex(pd.DatetimeIndex(target_months).month).to_numpy(), index=idx
+            )
+            transfer = {
+                "source": SEAS_TRANSFER_SOURCE,
+                "first_target": f"{SEAS_TRANSFER_FIRST_TARGET:%Y-%m}",
+                "cutoff": f"{SEAS_TRANSFER_CUTOFF:%Y-%m}",
+                "excludes": f"{SEAS_TRANSFER_EXCLUDE[0]:%Y-%m}..{SEAS_TRANSFER_EXCLUDE[1]:%Y-%m}",
+                "factors": {int(m): float(v) for m, v in factors.items()},
+            }
             continue
         if name.endswith("_lvl"):                       # FS5b level variants
             src = name.removesuffix("_lvl")
@@ -303,4 +361,5 @@ def build(
         feature_set="", encoding=encoding, dropped=dropped,
         target_start=tgt.min() if len(tgt) else None,
         target_end=tgt.max() if len(tgt) else None,
+        seas_transfer=transfer,
     )

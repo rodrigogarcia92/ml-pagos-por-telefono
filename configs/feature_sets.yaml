@@ -55,10 +55,22 @@ FS5b_stance:                            # 55 -- impulse vs stance
 # --- 12-month terms is also what makes the seasonal-transfer test a real
 # --- comparison rather than a redundant one (training_plan.md 5.1).
 FS0_short: *fs0
-FS1_short:
+FS1_short: &fs1short
   - *fs0
   - [y_d2, y_d3, y_ma3]
-FS2_short:
+FS2_short: &fs2short
   - *fs0
   - [y_d2, y_d3, y_ma3]
   - [circ_d1, circ_d2, circ_d3, circ_ma3]
+
+# --- The seasonal-transfer test (training_plan.md 5.2, pre-registered 2026-10-05).
+# --- seas_transfer = month-of-year factors measured on the AGGREGATE series before
+# --- 2024-01, indexed at the target month. Each set is its parent plus that ONE
+# --- column, so the delta between the pair is attributable to it. w2024 only:
+# --- dataset.build refuses it on any window that starts before the cutoff.
+FS1s_short:                             # 10 -- FS1_short + seas_transfer
+  - *fs1short
+  - [seas_transfer]
+FS2s_short:                             # 14 -- FS2_short + seas_transfer
+  - *fs2short
+  - [seas_transfer]
