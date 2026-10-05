@@ -1,0 +1,49 @@
+name: CI
+
+# Runs the offline test suite on every push and pull request.
+#
+# The tests use a synthetic panel -- no BigQuery, no BCRP API, no MLflow server,
+# no credentials. That is deliberate (training_plan.md 4.0: dataset.py takes a
+# snapshot path, never a connection), and it is what lets CI exist without any
+# secret. Do NOT add a step that needs Google credentials to this workflow.
+#
+# Later (roadmap step 12) a second job builds the Docker image on a Linux
+# runner, since the development machine never runs `docker build`.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install
+        run: pip install -r requirements-dev.txt
+
+      - name: Tests (the six that guard against silent leaks, plus the rest)
+        run: python -m pytest
+
+      # Advisory for now: the codebase predates ruff being enforced (15 lint
+      # findings, 17 files the formatter would touch). Making this blocking is
+      # its own cleanup commit, not something to smuggle into a feature change.
+      - name: Lint (advisory)
+        continue-on-error: true
+        run: |
+          pip install ruff
+          ruff check .
