@@ -47,6 +47,16 @@ EXPERIMENT_PREFIX = os.getenv("MLFLOW_EXPERIMENT_PREFIX", "26.1__")
 
 _SNAPSHOT_RE = re.compile(r"panel_(?P<version>.+)\.parquet$")
 
+# Fewer outer folds than this is a demonstration, not an evaluation
+# (training_plan.md 6.4 rule 4). Lives here, not in train.py, because the tag
+# vocabulary lives here and train.py imports this module (not the other way round).
+MIN_EVALUATION_FOLDS = 8
+
+
+def evaluation_status(n_folds: int) -> str:
+    """'evaluation' or 'demonstration', from the number of outer folds."""
+    return "evaluation" if n_folds >= MIN_EVALUATION_FOLDS else "demonstration"
+
 
 # --------------------------------------------------------------------------- #
 # Provenance
@@ -145,10 +155,18 @@ class RunContext:
 # Run helpers
 # --------------------------------------------------------------------------- #
 @contextmanager
-def parent_run(ctx: RunContext, description: str | None = None):
-    """Open the parent run for one configuration, with all ten tags attached."""
+def parent_run(ctx: RunContext, description: str | None = None, n_folds: int | None = None):
+    """Open the parent run for one configuration, with all ten tags attached.
+
+    `n_folds`, when known, adds the eleventh tag `evaluation_status`. It is NOT in
+    RunContext.tags() because it is a property of the result, not of the
+    configuration, and so must not enter the resume key (already_done).
+    """
     mlflow.set_experiment(ctx.experiment)
-    with mlflow.start_run(run_name=ctx.run_name, tags=ctx.tags()) as run:
+    tags = ctx.tags()
+    if n_folds is not None:
+        tags["evaluation_status"] = evaluation_status(n_folds)
+    with mlflow.start_run(run_name=ctx.run_name, tags=tags) as run:
         if description:
             mlflow.set_tag("mlflow.note.content", description)
         yield run

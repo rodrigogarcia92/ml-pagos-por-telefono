@@ -46,7 +46,7 @@ import pandas as pd
 
 from src.model_training import tracking  # noqa: F401 -- loads .env, sets tracking URI
 
-COLS = ["model_family", "feature_set", "window", "n_folds",
+COLS = ["model_family", "feature_set", "window", "n_folds", "evaluation_status",
         "mase_mean", "mase_std", "skill_h_mean", "mae_mean", "mape_mean"]
 
 
@@ -66,11 +66,18 @@ def fetch(target: str, horizon: int, stage: str = "cv",
     # Parents only. Children are folds and carry no aggregate metrics.
     runs = runs[runs["metrics.mase_mean"].notna()].copy()
 
+    n_folds = runs["params.n_folds"].astype(int)
+    # The tag is set by tracking.parent_run. A run logged before it existed has
+    # none; derive it from the fold count with the same rule rather than leave a
+    # demonstration unlabelled (training_plan.md 6.4 rule 4).
+    status = runs["tags.evaluation_status"] if "tags.evaluation_status" in runs else None
+    derived = n_folds.map(tracking.evaluation_status)
     out = pd.DataFrame({
         "model_family": runs["tags.model_family"],
         "feature_set": runs["tags.feature_set"],
         "window": runs["tags.window"],
-        "n_folds": runs["params.n_folds"].astype(int),
+        "n_folds": n_folds,
+        "evaluation_status": derived if status is None else status.fillna(derived),
         "mase_mean": runs["metrics.mase_mean"],
         "mase_std": runs["metrics.mase_std"],
         "skill_h_mean": runs["metrics.skill_h_mean"],
@@ -193,7 +200,7 @@ def main() -> None:
     if a.window:
         df = df[df["window"] == a.window]
 
-    show = df[["model_family", "feature_set", "window", "n_folds",
+    show = df[["model_family", "feature_set", "window", "n_folds", "evaluation_status",
                "mase_mean", "mase_std", "skill_h_mean", "skill_rw", "skill_drift",
                "mape_mean"]]
     with pd.option_context("display.float_format", lambda v: f"{v:8.3f}"):
@@ -205,7 +212,9 @@ def main() -> None:
     print("  by being wildly variable is not a better model.")
     print("  skill_h is measured against the SEASONAL naive; skill_rw against the")
     print("  RANDOM WALK; skill_drift against the DRIFT baseline -- the hurdle. A model")
-    print("  with skill_drift <= 0 has not beaten persistence plus trend.\n")
+    print("  with skill_drift <= 0 has not beaten persistence plus trend.")
+    print("  evaluation_status = 'demonstration' means fewer than 8 outer folds: the number")
+    print("  shows the pipeline runs, it does not rank anything (training_plan.md 6.4 rule 4).\n")
 
     if a.detail:
         detail(a.target, a.horizon, show.head(a.detail), a.stage, a.protocol)

@@ -528,3 +528,231 @@ def test_last_published_month_is_a_target_row(production_like, h):
 def test_protocol_version_is_1_6():
     from src.model_training import tracking
     assert tracking.PROTOCOL_VERSION == "1.6"
+
+
+# --------------------------------------------------------------------------- #
+# O-12 -- the wallet window has no year-ago level early on, and 12 training
+# months is one too few for the seasonal MASE scale
+# --------------------------------------------------------------------------- #
+WALLET_START = "2024-01-01"
+# Month-of-year multiplier of the aggregate, known by construction so the
+# seasonal-transfer tests can check that it is recovered.
+SEAS_PATTERN = np.array([-0.06, -0.08, 0.00, -0.02, 0.01, 0.00, 0.03, 0.01, -0.01, 0.00, 0.02, 0.10])
+
+
+@pytest.fixture(scope="module")
+def wallet_panel():
+    """31 wallet months (2024-01 .. 2026-07, as on the 2026-10-05 pull) on top of an
+    aggregate that starts years earlier -- the shape of the real snapshot."""
+    rng = np.random.default_rng(12)
+    idx = pd.date_range("2015-01-01", "2026-07-01", freq="MS")
+    n = len(idx)
+    month = idx.month.to_numpy() - 1
+    agg = np.exp(np.linspace(np.log(10), np.log(700), n) + SEAS_PATTERN[month]
+                 + 0.005 * rng.standard_normal(n))
+    p = pd.DataFrame({
+        "n_transf_intra_agg": agg,
+        "circulante": np.exp(np.linspace(np.log(40000), np.log(90000), n)),
+    }, index=idx)
+    w = np.asarray(idx >= pd.Timestamp(WALLET_START))
+    k = int(w.sum())
+    assert k == 31
+    base = np.exp(np.linspace(np.log(100), np.log(900), k) + SEAS_PATTERN[month[w]]
+                  + 0.04 * rng.standard_normal(k))
+    for col, share in (("n_transf_intra_yape", 1.0), ("n_transf_intra_plin", 0.3)):
+        p[col] = np.nan
+        p.loc[w, col] = base * share
+    meta = pd.DataFrame({
+        "col_name": p.columns, "kappa": [2, 1, 2, 2], "transform": ["log_diff"] * 4,
+    }).set_index("col_name")
+    return p, meta
+
+
+def _wallet(wallet_panel, target, cols=()):
+    p, m = wallet_panel
+    h = dataset.TARGETS[target]["horizon"]
+    return dataset.build(p, m, target_id=target, horizon=h, window="w2024",
+                         columns=list(cols), encoding="int")
+
+
+@pytest.mark.parametrize("target", ["t4", "t5"])
+@pytest.mark.parametrize("fs", ["none", "FS0_short", "FS1_short", "FS2_short"])
+def test_wallet_seasonal_reference_never_reaches_a_test_origin(wallet_panel, target, fs):
+    """The early wallet rows DO have no year-ago level (the series starts 2024-01),
+    but they are all training rows: every row with a missing seas_level sits below
+    the first test index, for every fold of every feature set. This is the property
+    that makes a NaN-handling fallback unnecessary -- and the reason _score_fold
+    raises, rather than skips, if it ever stops holding."""
+    cols = [] if fs == "none" else load_feature_sets()[fs]
+    f = _wallet(wallet_panel, target, cols)
+    h = dataset.TARGETS[target]["horizon"]
+    n_cv = len(f.X) - 6
+    missing = np.flatnonzero(f.ctx["seas_level"].isna().to_numpy())
+    assert 1 <= len(missing) <= 11, "the wallet frame should start without a year-ago level"
+    tgt = f.X.index + pd.DateOffset(months=h - 2)
+    assert (tgt[missing] < pd.Timestamp("2025-01-01")).all()
+    assert (tgt[~f.ctx["seas_level"].isna().to_numpy()] >= pd.Timestamp("2025-01-01")).all()
+    for fold in splits.make_folds(n_cv, window="w2024", horizon=h):
+        assert missing.max() < fold.test.min()
+
+
+def test_seasonal_mase_scale_needs_more_than_twelve_levels():
+    """Documents the defect O-12 found: with min_train = 12 the first outer fold has
+    exactly 12 training levels and the m=12 scale is undefined -- ValueError, so
+    every w2024 configuration used to fail on fold 0 before logging anything."""
+    levels = np.linspace(100, 200, 13)
+    with pytest.raises(ValueError, match="more than 12"):
+        metrics.seasonal_naive_scale(levels[:12])
+    assert metrics.seasonal_naive_scale(levels) == pytest.approx(100.0 * 12 / 12)  # one pair
+
+
+def test_mase_period_falls_back_only_where_the_seasonal_scale_is_undefined():
+    assert {w: metrics.mase_period(n) for w, n in splits.MIN_TRAIN.items()} == {
+        "w2019": 12, "w2021": 12, "w2024": 1}
+
+
+def test_mase_scale_is_unchanged_on_the_proxy_windows(synthetic):
+    """The fallback must not move t2/t3: on w2019 the fold's MASE is the old m=12 one."""
+    from src.model_training import registry
+    from src.model_training.train import _score_fold
+
+    frame = _frame(synthetic, model="naive_last", fs="none")
+    fold = splits.make_folds(len(frame.X) - 12, window="w2019", horizon=1)[5]
+    m, yhat = _score_fold(registry.build("naive_last", {}, horizon=1), frame, fold.train, fold.test)
+    y = frame.ctx["y_level"].to_numpy()[fold.test]
+    expected = metrics.mase(y, yhat, frame.ctx["y_level"].to_numpy()[fold.train], 12)
+    assert m["mase"] == pytest.approx(expected, rel=1e-12)
+
+
+@pytest.mark.parametrize("target", ["t4", "t5"])
+def test_every_wallet_fold_is_scored_with_the_random_walk_scale(wallet_panel, target):
+    """Every outer fold of every naive family and of ridge is finite, and the scale
+    is the in-sample MAE of the random walk on that fold's training levels."""
+    from src.model_training import registry
+    from src.model_training.train import _score_fold
+
+    h = dataset.TARGETS[target]["horizon"]
+    for family, params, fs in [("naive_last", {}, "none"), ("naive_drift", {}, "none"),
+                               ("naive_seasonal", {}, "none"), ("naive_seasdrift", {}, "none"),
+                               ("naive_calendar", {}, "none"),
+                               ("ridge", {"alpha": 10.0}, "FS1_short")]:
+        cols = [] if fs == "none" else registry.model_columns(family, load_feature_sets()[fs])
+        enc = "onehot" if family in registry.LINEAR_FAMILIES else "int"
+        p, mt = wallet_panel
+        f = dataset.build(p, mt, target_id=target, horizon=h, window="w2024",
+                          columns=cols, encoding=enc)
+        folds = splits.make_folds(len(f.X) - 6, window="w2024", horizon=h)
+        assert folds, (family, fs)
+        for fold in folds:
+            m, yhat = _score_fold(registry.build(family, params, horizon=h), f,
+                                  fold.train, fold.test)
+            assert all(np.isfinite(v) for v in m.values()), (family, fold.index, m)
+            lv = f.ctx["y_level"].to_numpy()[fold.train]
+            scale = float(np.mean(np.abs(np.diff(lv))))
+            y = f.ctx["y_level"].to_numpy()[fold.test]
+            assert m["mase"] == pytest.approx(np.mean(np.abs(y - yhat)) / scale, rel=1e-12)
+
+
+def test_score_fold_refuses_a_test_origin_without_a_seasonal_reference(wallet_panel):
+    """If min_train ever drops below the number of NaN rows, fail loudly instead of
+    letting nanmean in log_config skip the fold."""
+    from src.model_training import registry
+    from src.model_training.train import _score_fold
+
+    f = _wallet(wallet_panel, "t4")
+    assert np.isnan(f.ctx["seas_level"].iloc[3])
+    with pytest.raises(ValueError, match="seasonal reference missing"):
+        _score_fold(registry.build("naive_last", {}, horizon=1), f,
+                    np.arange(0, 3), np.array([3]))
+
+
+def test_naive_seasdrift_refuses_to_forecast_without_a_single_year_ago_pair(wallet_panel):
+    from src.model_training import registry
+
+    f = _wallet(wallet_panel, "t4")
+    rows = np.arange(0, 5)                                   # all NaN seas_level
+    assert f.ctx["seas_level"].iloc[rows].isna().all()
+    with pytest.raises(ValueError, match="no training row"):
+        registry.build("naive_seasdrift", {}, horizon=1).fit(None, None, f.ctx.iloc[rows])
+    # 12 rows is enough: the wallet window's first fold has exactly one pair.
+    m = registry.build("naive_seasdrift", {}, horizon=1).fit(None, None, f.ctx.iloc[np.arange(12)])
+    assert np.isfinite(m.growth_)
+
+
+def test_evaluation_status_follows_the_fold_count():
+    from src.model_training import tracking
+
+    assert [tracking.evaluation_status(n) for n in (0, 4, 7, 8, 9, 42)] == [
+        "demonstration", "demonstration", "demonstration", "evaluation", "evaluation", "evaluation"]
+
+
+@pytest.fixture
+def local_mlflow(tmp_path):
+    """A throwaway SQLite tracking store. NEVER the server in .env: these tests log."""
+    import mlflow
+
+    old = mlflow.get_tracking_uri()
+    mlflow.set_tracking_uri(f"sqlite:///{(tmp_path / 'mlflow.db').as_posix()}")
+    yield tmp_path
+    mlflow.set_tracking_uri(old)
+
+
+def _snapshot_files(tmp_path, wallet_panel):
+    p, m = wallet_panel
+    path = tmp_path / "panel_20261005T000000Z.parquet"
+    p.to_parquet(path)
+    m.reset_index().to_csv(tmp_path / "series_meta_20261005T000000Z.csv", index=False)
+    return str(path)
+
+
+def _log(cfg, tmp_path):
+    import mlflow
+    from src.model_training import tracking
+    from src.model_training.train import context_for, fit_config, log_config
+
+    exp = context_for(cfg, cfg.snapshot).experiment
+    if mlflow.get_experiment_by_name(exp) is None:
+        mlflow.create_experiment(exp, artifact_location=(tmp_path / "artifacts").as_uri())
+    return tracking, mlflow, log_config(fit_config(cfg))
+
+
+def test_wallet_run_logs_status_tag_and_fallback_params(local_mlflow, wallet_panel):
+    """End to end on the wallet window, offline: the runs complete (they raised on
+    fold 0 before O-12), carry evaluation_status, and say which scale they used."""
+    from src.model_training.train import RunConfig
+
+    snap = _snapshot_files(local_mlflow, wallet_panel)
+    # t5, no features: targets 2024-04 .. 2026-07 = 28 rows, 22 CV, 22 - 12 - 2 = 8
+    # folds -- exactly the threshold, so this one is an evaluation.
+    cfg = RunConfig("t5", 3, "w2024", "naive_drift", "none", snapshot=snap)
+    _, mlflow, res = _log(cfg, local_mlflow)
+    run = mlflow.get_run(res.run_id)
+    assert res.n_folds == 8
+    assert run.data.tags["evaluation_status"] == "evaluation"
+    assert "mlflow.note.content" not in run.data.tags
+    assert run.data.params["mase_scale_period"] == "1"
+    assert run.data.params["n_folds_nan_metric"] == "0"
+    assert int(run.data.params["n_rows_seasonal_ref_missing"]) >= 1
+
+    # t5 with FS1_short: first target 2024-07, 25 rows, 19 CV, 19 - 12 - 2 = 5 folds.
+    cfg = RunConfig("t5", 3, "w2024", "ridge", "FS1_short", snapshot=snap,
+                    tune={"alpha": [1.0, 10.0]})
+    _, mlflow, res = _log(cfg, local_mlflow)
+    run = mlflow.get_run(res.run_id)
+    assert res.n_folds == 5
+    assert run.data.tags["evaluation_status"] == "demonstration"
+    assert "DEMONSTRATION" in run.data.tags["mlflow.note.content"]
+
+
+def test_report_shows_the_evaluation_status_column(local_mlflow, wallet_panel):
+    from src.model_training import report
+    from src.model_training.train import RunConfig
+
+    snap = _snapshot_files(local_mlflow, wallet_panel)
+    _log(RunConfig("t5", 3, "w2024", "naive_drift", "none", snapshot=snap), local_mlflow)
+    _log(RunConfig("t5", 3, "w2024", "ridge", "FS1_short", snapshot=snap,
+                   tune={"alpha": [1.0, 10.0]}), local_mlflow)
+    df = report.fetch("t5", 3)
+    assert "evaluation_status" in df.columns
+    got = dict(zip(df["model_family"], zip(df["n_folds"], df["evaluation_status"])))
+    assert got == {"naive_drift": (8, "evaluation"), "ridge": (5, "demonstration")}

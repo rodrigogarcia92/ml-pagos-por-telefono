@@ -79,7 +79,13 @@ class NaiveSeasonalDrift(_Naive):
 
     def fit(self, X, y, ctx):
         g = np.log(ctx["y_level"].to_numpy()) - np.log(ctx["seas_level"].to_numpy())
-        self.growth_ = float(np.nanmean(g))
+        # Wallet frames carry NaN seas_level on their first rows (O-12): those
+        # rows contribute no pair and are skipped. Skipping is the point; having
+        # NO pair at all is not something to turn into a NaN forecast.
+        g = g[np.isfinite(g)]
+        if not len(g):
+            raise ValueError("naive_seasdrift: no training row has a year-ago level")
+        self.growth_ = float(np.mean(g))
         return self
 
     def predict(self, X, ctx):

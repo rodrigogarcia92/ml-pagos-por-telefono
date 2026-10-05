@@ -58,8 +58,8 @@ HOLDOUT_MONTHS = {"w2019": 12, "w2021": 12, "w2024": 6}
 SEED = 26
 
 # Fold counts below this are demonstrations, not evaluations
-# (training_plan.md 6.4 rule 4).
-MIN_EVALUATION_FOLDS = 8
+# (training_plan.md 6.4 rule 4). Defined in tracking.py, which owns the tag.
+MIN_EVALUATION_FOLDS = tracking.MIN_EVALUATION_FOLDS
 
 
 @dataclass
@@ -157,6 +157,20 @@ def _score_fold(model, frame, tr, te) -> tuple[dict, np.ndarray]:
     ytr = frame.y.to_numpy()[tr]
     ctx_tr, ctx_te = frame.ctx.iloc[tr], frame.ctx.iloc[te]
 
+    # A test origin with no year-ago level has no seasonal reference, so neither
+    # skill_h nor the seasonal naives can be scored there. NaN would be skipped by
+    # nanmean in log_config -- a silent drop. w2024 frames DO contain such rows
+    # (the wallets start 2024-01, so seas_level is NaN for the first <= 11 rows),
+    # but min_train = 12 keeps them all in TRAINING, which is why nothing reached
+    # this guard in the wallet window (O-12). If min_train ever drops, fail here.
+    if ctx_te["seas_level"].isna().any():
+        raise ValueError(
+            f"{frame.window}: seasonal reference missing at test origin "
+            f"{[f'{d:%Y-%m}' for d in ctx_te.index[ctx_te['seas_level'].isna()]]}. "
+            "Refusing to score it as NaN (training_plan.md 6.4 rule 2, O-12)."
+        )
+    scale_m = metrics.mase_period(splits.MIN_TRAIN[frame.window])
+
     if model.uses_context:
         model.fit(None, ytr, ctx_tr)
         z_hat = model.predict(None, ctx_te)
@@ -177,6 +191,7 @@ def _score_fold(model, frame, tr, te) -> tuple[dict, np.ndarray]:
         yhat,
         train_levels=ctx_tr["y_level"].to_numpy(),
         seasonal_level=ctx_te["seas_level"].to_numpy(),
+        scale_m=scale_m,
     )
     return m, yhat
 
@@ -336,7 +351,7 @@ def log_config(fit: FitResult) -> RunResult:
         note = (f"DEMONSTRATION, NOT AN EVALUATION: {n_folds} outer folds "
                 f"(< {MIN_EVALUATION_FOLDS}). training_plan.md 6.4 rule 4.")
 
-    with tracking.parent_run(ctx, description=note) as parent:
+    with tracking.parent_run(ctx, description=note, n_folds=n_folds) as parent:
         mlflow.log_params({
             **{f"hp_{k}": v for k, v in fit.best_params.items()},
             "min_train": splits.MIN_TRAIN[cfg.window],
@@ -344,6 +359,15 @@ def log_config(fit: FitResult) -> RunResult:
             "n_folds": n_folds,
             "n_features": frame.X.shape[1],
             "n_candidates_evaluated": len(fit.tuning_table),
+            # O-12. Which MASE scale this window uses (12 normally; 1 where
+            # min_train <= 12 makes the seasonal one undefined on fold 0), how
+            # many frame rows have no year-ago level (they sit in training only --
+            # _score_fold refuses them at a test origin), and how many folds came
+            # out NaN on any metric (log_config's nanmean would skip them silently).
+            "mase_scale_period": metrics.mase_period(splits.MIN_TRAIN[cfg.window]),
+            "n_rows_seasonal_ref_missing": int(frame.ctx["seas_level"].isna().sum()),
+            "n_folds_nan_metric": sum(
+                any(np.isnan(v) for v in d.values()) for d in fit.per_fold),
             "holdout_months": fit.n_hold,   # the final N target months (h-independent)
             "window_target_start": f"{frame.target_start:%Y-%m}",
             "window_target_end": f"{frame.target_end:%Y-%m}",
