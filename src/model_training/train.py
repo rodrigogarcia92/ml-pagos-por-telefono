@@ -220,7 +220,7 @@ def _tune(frame, cfg, n_cv) -> tuple[dict, pd.DataFrame]:
     from a DataFrame row, which would have turned ints into floats and None into
     NaN. Both fixed; test_tuning_* pins them.
     """
-    grid = registry.grid_for(cfg.model_family, cfg.feature_set, cfg.tune)
+    grid = registry.grid_for(cfg.model_family, cfg.feature_set, cfg.tune, cfg.window)
     if not grid:
         return {}, pd.DataFrame()
 

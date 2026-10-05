@@ -543,9 +543,11 @@ SEAS_PATTERN = np.array([-0.06, -0.08, 0.00, -0.02, 0.01, 0.00, 0.03, 0.01, -0.0
 @pytest.fixture(scope="module")
 def wallet_panel():
     """31 wallet months (2024-01 .. 2026-07, as on the 2026-10-05 pull) on top of an
-    aggregate that starts years earlier -- the shape of the real snapshot."""
+    aggregate that starts years earlier -- the shape of the real snapshot. The index
+    runs two months PAST the last payments month, as in production where macro series
+    are published sooner: without that, h=1 could not use 2026-07 as a target."""
     rng = np.random.default_rng(12)
-    idx = pd.date_range("2015-01-01", "2026-07-01", freq="MS")
+    idx = pd.date_range("2015-01-01", "2026-09-01", freq="MS")
     n = len(idx)
     month = idx.month.to_numpy() - 1
     agg = np.exp(np.linspace(np.log(10), np.log(700), n) + SEAS_PATTERN[month]
@@ -554,9 +556,10 @@ def wallet_panel():
         "n_transf_intra_agg": agg,
         "circulante": np.exp(np.linspace(np.log(40000), np.log(90000), n)),
     }, index=idx)
-    w = np.asarray(idx >= pd.Timestamp(WALLET_START))
+    w = np.asarray((idx >= pd.Timestamp(WALLET_START)) & (idx <= pd.Timestamp("2026-07-01")))
     k = int(w.sum())
     assert k == 31
+    p.loc["2026-08-01":, "n_transf_intra_agg"] = np.nan     # payments end 2026-07
     base = np.exp(np.linspace(np.log(100), np.log(900), k) + SEAS_PATTERN[month[w]]
                   + 0.04 * rng.standard_normal(k))
     for col, share in (("n_transf_intra_yape", 1.0), ("n_transf_intra_plin", 0.3)):
@@ -886,3 +889,100 @@ def test_seas_transfer_runs_log_their_factor_source_and_cutoff(local_mlflow, wal
     assert "seas_transfer" in feats["columns"]
     assert len(feats["seas_transfer"]["factors"]) == 12
     assert sum(feats["seas_transfer"]["factors"].values()) == pytest.approx(0.0, abs=1e-9)
+
+
+# --------------------------------------------------------------------------- #
+# s4_wallet -- spec, reduced w2024 grids, feasibility of every configuration
+# --------------------------------------------------------------------------- #
+def _s4_runs():
+    import yaml
+    from pathlib import Path
+    from src.model_training import sweep
+
+    spec = yaml.safe_load(Path("configs/sweeps/s4_wallet.yaml").read_text(encoding="utf-8"))
+    return sweep.expand(spec, "data/processed/panel_x.parquet")
+
+
+def test_s4_spec_expands_to_the_reconciled_30_parents():
+    """Plan 7.2: 5 naive x 2 targets + (ridge, xgboost) x 5 feature sets x 2 targets.
+    The plan's old '18' counted one naive per feature set (3 x 3 x 2) and no transfer sets."""
+    from src.model_training import registry
+
+    runs = _s4_runs()
+    assert len(runs) == 30
+    assert len({(r.target_id, r.model_family, r.feature_set, r.window) for r in runs}) == 30
+    assert {r.window for r in runs} == {"w2024"}
+    assert {(r.target_id, r.horizon) for r in runs} == {("t4", 1), ("t5", 3)}
+    naive = [r for r in runs if r.model_family in registry.NAIVE_FAMILIES]
+    assert len(naive) == 10 and {r.feature_set for r in naive} == {"none"}
+    assert {r.model_family for r in naive} == {"naive_last", "naive_drift", "naive_seasonal",
+                                                "naive_seasdrift", "naive_calendar"}
+    for fam in ("ridge", "xgboost"):
+        sets = {r.feature_set for r in runs if r.model_family == fam}
+        assert sets == {"FS0_short", "FS1_short", "FS2_short", "FS1s_short", "FS2s_short"}
+    # naive_drift must be present for BOTH targets: report.py derives the hurdle from it.
+    assert {r.target_id for r in runs if r.model_family == "naive_drift"} == {"t4", "t5"}
+    # Every feature set a w2024 run asks for is a _short one (never a 12-month term).
+    assert all(r.feature_set == "none" or "short" in r.feature_set for r in runs)
+
+
+def test_w2024_grids_are_reduced_and_the_proxy_grids_are_untouched():
+    import math
+    from src.model_training import registry
+
+    size = lambda g: math.prod(len(v) for v in g.values())          # noqa: E731
+    assert size(registry.grid_for("ridge", "FS1_short", None, "w2024")) == 5
+    assert size(registry.grid_for("xgboost", "FS1_short", None, "w2024")) == 16
+    # Not a single value may fall outside the full menu, except where the plan reduced it.
+    assert set(registry.W2024_GRIDS["xgboost"]["max_depth"]) <= {2, 3, 4}
+    # t2/t3 are byte-for-byte what they were, with or without a window argument.
+    for fam, n in (("ridge", 13), ("elasticnet", 66), ("svr_rbf", 36), ("rf", 54),
+                   ("xgboost", 288), ("sarimax", 72)):
+        for w in (None, "w2019", "w2021"):
+            assert size(registry.grid_for(fam, "FS3_activity", None, w)) == n, (fam, w)
+    assert registry.grid_for("xgboost", "FS3_activity") == registry.default_grid("xgboost")
+    # A sweep spec's `tune:` still wins; naive models keep their own tiny grid.
+    assert registry.grid_for("ridge", "FS1_short", {"alpha": [1.0]}, "w2024") == {"alpha": [1.0]}
+    assert registry.grid_for("naive_drift", "none", None, "w2024") == registry.default_grid("naive_drift")
+    # A family with no reduced grid is refused on w2024 rather than given a full one.
+    for fam in ("elasticnet", "svr_rbf", "rf", "sarimax"):
+        with pytest.raises(ValueError, match="No reduced w2024 grid"):
+            registry.grid_for(fam, "FS1_short", None, "w2024")
+
+
+@pytest.mark.parametrize("run", _s4_runs(), ids=lambda r: f"{r.target_id}-{r.model_family}-{r.feature_set}")
+def test_every_s4_configuration_has_folds_to_tune_and_to_score(wallet_panel, run):
+    """No s4 config may die in fit_config on a fold-count error three hours in: each has
+    CV rows above min_train, at least one inner fold for Stage A, and at least one outer
+    fold. Offline, on the synthetic wallet panel (31 months, as on the 2026-10-05 pull)."""
+    from src.model_training import registry
+    from src.model_training.train import HOLDOUT_MONTHS
+
+    p, m = wallet_panel
+    naive = run.model_family in registry.NAIVE_FAMILIES
+    cols = [] if naive else registry.model_columns(run.model_family, load_feature_sets()[run.feature_set])
+    f = dataset.build(p, m, target_id=run.target_id, horizon=run.horizon, window="w2024",
+                      columns=cols, encoding="int")
+    n_cv = len(f.X) - HOLDOUT_MONTHS["w2024"]
+    mt = splits.MIN_TRAIN["w2024"]
+    assert n_cv > mt
+    assert splits.inner_folds(n_cv, horizon=run.horizon, min_train=mt)
+    outer = splits.make_folds(n_cv, window="w2024", horizon=run.horizon)
+    assert len(outer) == n_cv - mt - (run.horizon - 1)
+    assert f.target_end == pd.Timestamp("2026-07-01")
+
+
+@pytest.mark.parametrize("model,n_cands", [("ridge", 5), ("xgboost", 16)])
+def test_stage_a_uses_the_reduced_grid_on_the_wallet_window(wallet_panel, model, n_cands):
+    """Through the real _tune, which must hand cfg.window to grid_for."""
+    from src.model_training import registry
+    from src.model_training.train import HOLDOUT_MONTHS, RunConfig, _tune
+
+    p, m = wallet_panel
+    cols = registry.model_columns(model, load_feature_sets()["FS1s_short"])
+    enc = "onehot" if model in registry.LINEAR_FAMILIES else "int"
+    f = dataset.build(p, m, target_id="t5", horizon=3, window="w2024", columns=cols, encoding=enc)
+    cfg = RunConfig("t5", 3, "w2024", model, "FS1s_short")
+    best, table = _tune(f, cfg, len(f.X) - HOLDOUT_MONTHS["w2024"])
+    assert len(table) == n_cands
+    assert table["n_ok_inner_folds"].min() == table["n_inner_folds"].max() >= 4

@@ -281,15 +281,55 @@ def default_grid(model_family: str) -> dict:
     return MODELS[model_family][1]
 
 
-def grid_for(model_family: str, feature_set: str, override: dict | None = None) -> dict:
+# w2024 search spaces (training_plan.md 7.2 row 13). The wallet window has 18-22
+# CV rows and its Stage A has 4-8 inner folds, so the full grids (xgboost: 288
+# candidates, ridge: 13 alphas) would pick a winner from noise and spend most of
+# their evaluations differentiating configurations the data cannot tell apart.
+# Fixed here, before any wallet run. Only the families s4_wallet uses have one:
+# asking for another on w2024 raises rather than silently using a full grid.
+#   ridge   5 alphas, 0.1 .. 1000: weak shrinkage up to "almost the intercept",
+#           which is where a 12-row fit may well belong.
+#   xgboost 16 candidates: depth 2 only (a depth-3 tree has more leaves than a
+#           12-row fold has rows to fill), min_child_weight 1 / 3 (5 forbids
+#           nearly every split at n = 12), fewer rounds than the full grid.
+W2024_GRIDS: dict[str, dict] = {
+    "ridge": {"alpha": [0.1, 1.0, 10.0, 100.0, 1000.0]},
+    "xgboost": {
+        "max_depth": [2], "learning_rate": [0.05, 0.1], "n_estimators": [100, 300],
+        "subsample": [1.0], "colsample_bytree": [0.8], "min_child_weight": [1, 3],
+        "reg_lambda": [1, 10],
+    },
+}
+
+
+def grid_for(
+    model_family: str, feature_set: str, override: dict | None = None,
+    window: str | None = None,
+) -> dict:
     """The search space for one configuration.
+
+    Precedence: a sweep spec's `tune:` override, then the reduced w2024 grid for a
+    feature model on that window, then the full default grid. Naive models keep
+    their (tiny) default grid everywhere -- it is the hurdle's own tuning and is
+    the same on every window.
 
     SARIMAX on FS0_calendar is pinned to p = q = 0. FS0 is "how much is pure
     calendar" and FS1 is "how much is persistence"; if the ARMA terms were free
     on FS0, the two sets would differ only in exogenous columns that SARIMAX drops
     anyway (model_columns), and the ablation would compare a model with itself.
     """
-    grid = dict(override) if override else dict(default_grid(model_family))
+    if override:
+        grid = dict(override)
+    elif window == "w2024" and model_family not in NAIVE_FAMILIES:
+        if model_family not in W2024_GRIDS:
+            raise ValueError(
+                f"No reduced w2024 grid is registered for {model_family!r} "
+                f"(have {sorted(W2024_GRIDS)}): its full grid cannot be supported by "
+                "~20 CV rows. Register one in registry.W2024_GRIDS, in the plan, first."
+            )
+        grid = dict(W2024_GRIDS[model_family])
+    else:
+        grid = dict(default_grid(model_family))
     if model_family == "sarimax" and feature_set.startswith("FS0"):
         grid["p"], grid["q"] = [0], [0]
     return grid

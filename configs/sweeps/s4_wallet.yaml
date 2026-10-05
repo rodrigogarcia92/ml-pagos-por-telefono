@@ -1,0 +1,59 @@
+# s4_wallet -- the wallet targets and the seasonal-transfer test. 30 parent runs.
+# training_plan.md section 7.2 rows 13-14, section 5.2, section 9.1.
+#
+#   naive x 5 variants                         x 2 targets   = 10
+#   ridge    x 5 feature sets (3 + 2 transfer) x 2 targets   = 10
+#   xgboost  x 5 feature sets (3 + 2 transfer) x 2 targets   = 10
+#                                                              ----
+#                                                                30
+#
+# (The plan said 18. That figure counted ONE naive per feature set -- 3 models x
+# 3 sets x 2 targets -- but naive models take no features, and the transfer sets
+# are extra. Reconciled in section 7.2; the arithmetic is in the sweep dry-run.)
+#
+# t4 = Yape + Plin intrabank count at h=1, t5 the same at h=3. Window w2024 only.
+# Every run is a DEMONSTRATION or an EVALUATION by its own fold count: read the
+# evaluation_status tag / column, never assume (section 6.4 rule 4). MASE here is
+# scaled by the random walk, not the seasonal naive (section 6.3, O-12), so it is
+# comparable only with other w2024 runs.
+#
+# The five naive variants are here, not just naive_drift, because the hurdle
+# (skill_drift) is derived from the naive_drift run IN THE SAME EXPERIMENT and
+# window -- s1_baselines covers t2/t3 only.
+#
+# THE TRANSFER TEST (section 5.2, pre-registered): FS1s_short / FS2s_short are
+# FS1_short / FS2_short plus ONE column, seas_transfer -- month-of-year factors
+# measured on the aggregate series before 2024-01. The pair FS1_short vs FS1s_short
+# (and FS2_short vs FS2s_short), same model, same folds, is the comparison.
+# This sweep does NOT depend on s2 or on any model selection.
+#
+# Search spaces: registry.W2024_GRIDS (ridge 5, xgboost 16), NOT the full grids.
+#
+# Execution:
+#   python -m src.model_training.sweep --config configs/sweeps/s4_wallet.yaml --dry-run
+#   python -m src.model_training.sweep --config configs/sweeps/s4_wallet.yaml --jobs 4
+#
+# Needs a snapshot taken AFTER the 2026-10-05 pull for the numbers in the plan to
+# apply (docs/RUNBOOK.md section 12).
+
+name: s4_wallet
+
+targets: [t4, t5]
+windows: [w2024]
+stage: cv
+
+models:
+  - naive_last
+  - naive_drift
+  - naive_seasonal
+  - naive_seasdrift
+  - naive_calendar
+  - ridge
+  - xgboost
+
+feature_sets:
+  - FS0_short
+  - FS1_short
+  - FS2_short
+  - FS1s_short
+  - FS2s_short
