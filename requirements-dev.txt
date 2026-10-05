@@ -3,4 +3,15 @@
 
 ipykernel                   # VS Code interactive cells (# %%)
 ruff                        # linter + formatter (extension already installed)
-pytest                      # tests for the ETL, and later the FastAPI app
+pytest                      # tests for the ETL, the feature builder, and the API
+
+# --- Modelling (step 7–8) --------------------------------------------------
+# Training is local by design (outline §8.1), so these stay out of the runtime
+# requirements until step 12 decides what the serving image actually needs.
+scikit-learn                # Ridge, ElasticNet, SVR, RandomForest, preprocessing
+xgboost                     # CPU `hist` — NOT cuda; see training_plan.md §7.2
+pyyaml                      # configs/*.yaml
+joblib                      # parallelism ACROSS configurations, n_jobs=1 per fit
+
+# statsmodels (SARIMAX), pyarrow (snapshot), matplotlib (plots) come from
+# requirements.txt above — do not duplicate them here.

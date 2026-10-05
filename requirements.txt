@@ -12,6 +12,7 @@ python-dotenv
 pandas
 numpy
 pyarrow                     # BigQuery load/read path + parquet in data/interim
+                            # ALSO: the training snapshot (training_plan.md §4.0)
 
 # --- BigQuery ---
 google-cloud-bigquery
@@ -20,20 +21,50 @@ pandas-gbq                  # silences a FutureWarning; will be REQUIRED by
                             # load_table_from_dataframe() in a future release
 
 # --- EDA ---
-statsmodels                 # LOWESS in notebooks/01_eda_bcrp.py; SARIMAX later
+statsmodels                 # LOWESS in notebooks/01_eda_bcrp.py; SARIMAX in the grid
 matplotlib
 seaborn
+
+# --- MLOps (step 7) --------------------------------------------------------
+# Here rather than in requirements-dev.txt because the FastAPI service (step 11)
+# also imports mlflow, to load the model promoted in the Registry instead of a
+# pickle copied into the repo.  Heavy: pulls flask, alembic, sqlalchemy.
+mlflow
+google-cloud-storage        # MLflow artifact root: gs://pagos-telefono-26-mlflow
+                            # (us-central1 — the always-free 5 GB is REGIONAL;
+                            #  the US multi-region is not covered)
+
+# The ONE pin in this file, and it is load-bearing.
+#
+# anyio 4.15.0 made submodule access lazy: after `import anyio`, the attribute
+# `anyio.from_thread` no longer resolves unless the submodule was imported
+# explicitly. Starlette's (deprecated) WSGI bridge does exactly that implicit
+# access, and MLflow 3.15.2 routes EVERY request — /health included — through
+# that bridge. Result: every request returns HTTP 500 with
+#     AttributeError: module 'anyio' has no attribute 'from_thread'
+#
+# This is not a broken local environment. A clean `pip install mlflow==3.15.2`
+# resolves anyio 4.15.0 / starlette 1.6.0 / fastapi 0.141.1 and is broken out of
+# the box. Verified 2026-09-05: with anyio<4.15, GET /health returns 200 and the
+# search API returns JSON; `pip check` reports no broken requirements.
+#
+# Revisit when MLflow or Starlette ships a fix, then drop the pin.
+anyio<4.15
 
 # ---------------------------------------------------------------------------
 # Add later, one roadmap step at a time — keeps the env small and resolvable:
 #
-#   step 6  pip install scikit-learn xgboost
-#   step 7  pip install mlflow            (heavy: flask, alembic, sqlalchemy)
-#   step 8  pip install torch --index-url https://download.pytorch.org/whl/cu121
-#   step 9  pip install fastapi uvicorn
+#   step  9  pip install torch --index-url https://download.pytorch.org/whl/cu121
+#   step 11  pip install fastapi uvicorn
+#
+#   NOTE for step 12 (Docker image): the serving image needs whichever modelling
+#   library produced the promoted model — scikit-learn and/or xgboost — even
+#   though those live in requirements-dev.txt today.  Decide the split when the
+#   winner is known, not before.
 #
 #   optional: prophet (heavy on Windows), pmdarima (lags new numpy releases),
 #             pytrends (Google Trends, if that source is added)
 #
+# Modelling libraries live in requirements-dev.txt (training is local, §8.1).
 # dbt lives in its own virtualenv — see requirements-dbt.txt.
 # ---------------------------------------------------------------------------

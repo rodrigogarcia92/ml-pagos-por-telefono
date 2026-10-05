@@ -1,0 +1,34 @@
+# Tooling configuration for this project.
+#
+# This file exists for one reason and gains others over time: `pytest -q` from
+# the project root must be able to `import src.model_training`.
+#
+# WHY IT IS NEEDED. `python -m pytest` puts the current directory on sys.path;
+# the bare `pytest` console script does NOT. Both are things a person types, so
+# a test suite that only works under one of them is a trap -- it passes in
+# whichever form the author happened to use and fails for everyone else.
+# `pythonpath = ["."]` makes the project root importable either way.
+#
+# This project is deliberately NOT an installable package: there is no
+# [build-system] and no [project] table. It is an application you run from its
+# own root, so `pip install -e .` is a step nobody should have to remember.
+
+[tool.pytest.ini_options]
+minversion = "7.0"          # pythonpath ini option was added in pytest 7
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E501 is handled by the formatter; B008 fires on FastAPI's Depends() at step 11.
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert on magic numbers on purpose -- the numbers ARE the specification
+# (29 folds, 6 columns, MASE = 1.0), and naming them would hide the assertion.
+"tests/*" = ["E402"]
