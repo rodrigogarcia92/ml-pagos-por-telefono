@@ -10,6 +10,11 @@ models:
         description: BCRP series code.
         data_tests:
           - not_null
+          # Passes by construction since 2026-09-05: the model inner-joins to
+          # metadata, so an observation without a metadata row cannot survive.
+          # Kept as a regression guard on that join, not as a live assertion.
+          # The test that carries information now is the reverse direction, on
+          # stg_series_metadata below.
           - relationships:
               arguments:
                 to: ref('stg_series_metadata')
@@ -39,12 +44,24 @@ models:
               - obs_date
 
   - name: stg_series_metadata
-    description: Series labels and categories, projected from config.py.
+    description: >
+      Series labels and categories, projected from config.py. A CURRENT
+      DECLARATION, rewritten on every loader run -- unlike raw.bcrp_observations,
+      which is an immutable archive. Retiring a series removes it here and
+      leaves its history there; stg_bcrp_observations reconciles the two.
     columns:
       - name: series_code
         data_tests:
           - not_null
           - unique
+          # THE ONE THAT EARNS ITS KEEP. Every declared series must actually
+          # have observations. Catches the realistic failure after a config
+          # edit: a mistyped BCRP code, which would otherwise appear as a panel
+          # column that is silently NULL for all 200 months.
+          - relationships:
+              arguments:
+                to: ref('stg_bcrp_observations')
+                field: series_code
       - name: col_name
         description: Becomes a column name in marts.monthly_panel.
         data_tests:

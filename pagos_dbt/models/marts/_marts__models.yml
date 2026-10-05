@@ -53,3 +53,58 @@ models:
           quote as soles until the BCRP scaling factors are confirmed.
       - name: n_total_mom
         description: Month-over-month growth in operation count. NULL in the first month.
+
+  - name: series_coverage
+    description: >
+      Coverage audit, one row per series: first and last observation, how many
+      months it spans, and whether there are holes inside that span. Exists so
+      the difference between a structural edge NULL (series not yet born) and
+      an interior NULL (a real defect) is asserted on every build rather than
+      eyeballed once. See docs/training_plan.md 4.0.
+    columns:
+      - name: col_name
+        description: Panel column this series populates.
+        data_tests:
+          - not_null
+          - unique
+      - name: category
+        description: target | macro | complementary | pagos_agregados.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['target', 'macro', 'complementary', 'pagos_agregados']
+      - name: first_obs
+        data_tests:
+          - not_null
+      - name: last_obs
+        data_tests:
+          - not_null
+      - name: n_values
+        description: Count of non-null observations after de-duplication.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 24
+                inclusive: true
+      - name: interior_gaps
+        description: >
+          span_months - n_values. MUST be zero. A non-zero value means a month
+          is missing inside the series' own coverage, which would silently
+          corrupt any lag or moving average built from it. This is the test
+          that makes the ragged panel safe to build features from.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 0
+                inclusive: true
+      - name: months_behind_panel_edge
+        description: >
+          Staleness relative to the freshest series in the panel. A cross-check
+          on the publication lags in training_plan.md 4.1 -- informational, not
+          asserted, because it also moves with the ETL run date.
+        data_tests:
+          - not_null
