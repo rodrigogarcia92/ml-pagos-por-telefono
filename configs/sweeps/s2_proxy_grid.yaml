@@ -1,0 +1,64 @@
+# s2_proxy_grid -- the main grid. 66 parent runs, Stage A + Stage B.
+# training_plan.md section 7.2 rows 6-11, execution order step 6.
+#
+#   5 feature-set models x 6 feature sets x 2 horizons          = 60
+#   SARIMAX             x 3 feature sets x 2 horizons          =  6
+#                                                               ----
+#                                                                66
+#
+# RUN ORDER. Not before:
+#   1. s1_baselines has been run on the SAME snapshot -- every result here is
+#      reported against the floor, and the floor has to exist first.
+#   2. Open item O-10 (window definition) is decided, because it moves the fold
+#      boundaries of every run below. Changing it afterwards means a new
+#      protocol_version and a full re-run.
+#   3. `--dry-run` shows 66.
+#
+# Full search grids (registry.py), NOT the narrowed ones s0_smoke used:
+#   ridge 13 | elasticnet 66 | svr_rbf 36 | rf 54 | xgboost 288 | sarimax 72
+#   (SARIMAX on FS0 is pinned to p = q = 0 -- registry.grid_for -- so 8)
+# Each candidate is scored on the last 10 inner folds of the CV period (Stage A),
+# creating no MLflow runs; the whole search lands in tuning_results.csv on the
+# parent.
+#
+# Execution:
+#   python -m src.model_training.sweep --config configs/sweeps/s2_proxy_grid.yaml --dry-run
+#   python -m src.model_training.sweep --config configs/sweeps/s2_proxy_grid.yaml --jobs 6
+#
+# Interrupting is safe: finished runs are skipped on restart (same tag set,
+# same data_version, same protocol_version).
+#
+# PRE-REGISTERED PREDICTION to check afterwards (training_plan.md 5):
+#   FS1 -> FS2 delivers most of whatever gain exists. FS3 and FS4 are flat. FS5
+#   degrades linear models and destabilises trees. If FS5 wins outright, suspect
+#   a leak before celebrating.
+
+name: s2_proxy_grid
+
+targets: [t2, t3]
+windows: [w2019]
+stage: cv
+
+models:
+  - ridge
+  - elasticnet
+  - svr_rbf
+  - rf
+  - xgboost
+  - sarimax
+
+feature_sets:
+  - FS1_autoregressive
+  - FS2_cash
+  - FS3_activity
+  - FS4_prices
+  - FS5_macro_full
+  - FS5b_stance
+
+feature_sets_by_model:
+  # FS0 is "how much is pure calendar": SARIMAX with no ARMA terms. See
+  # registry.grid_for and registry.model_columns for the exogenous-column rule.
+  sarimax:
+    - FS0_calendar
+    - FS1_autoregressive
+    - FS2_cash

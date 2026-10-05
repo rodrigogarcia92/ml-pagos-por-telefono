@@ -66,3 +66,24 @@ def inner_folds(n_train: int, *, horizon: int, min_train: int, max_folds: int = 
     # Keep the LAST max_folds: the most recent regime is the one being forecast.
     kept = all_folds[-max_folds:]
     return [Fold(index=i, train=f.train, test=f.test) for i, f in enumerate(kept)]
+
+
+def holdout_folds(n_rows: int, *, n_cv: int, horizon: int) -> list[Fold]:
+    """Stage C: one expanding-window fold per holdout origin, purge included.
+
+    Same construction as Stage B, so the B -> C gap (selection optimism,
+    training_plan.md 7.3) compares like with like. Rows `n_cv` .. `n_rows - 1` are
+    the holdout; the first test origin is `n_cv`, and every fold trains on
+    everything up to `origin - purge`.
+
+    v1.3 evaluated the holdout as a SINGLE fit on all CV rows against all
+    holdout rows at once. That had no purge -- a leak at h=3, where the last
+    training target overlaps the first test target -- and scored a model that was
+    never refitted as the holdout unfolded, so it was not comparable with Stage B.
+    Nothing had been run against it when it was replaced (training_plan.md 11).
+    """
+    purge = horizon - 1
+    folds = []
+    for i in range(n_cv, n_rows):
+        folds.append(Fold(index=len(folds), train=np.arange(0, i - purge), test=np.array([i])))
+    return folds

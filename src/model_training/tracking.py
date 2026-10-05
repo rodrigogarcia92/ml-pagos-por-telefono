@@ -39,7 +39,10 @@ load_dotenv()
 # run() returns the run_id and every run is one click away in the UI.
 os.environ.setdefault("MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", "true")
 
-PROTOCOL_VERSION = "1.3"          # docs/training_plan.md
+# docs/training_plan.md. Part of the resume key (already_done), so bumping it
+# makes every earlier run invisible to a sweep -- on purpose: runs made under a
+# different protocol are not comparable and must not satisfy "already done".
+PROTOCOL_VERSION = "1.4"
 EXPERIMENT_PREFIX = os.getenv("MLFLOW_EXPERIMENT_PREFIX", "26.1__")
 
 _SNAPSHOT_RE = re.compile(r"panel_(?P<version>.+)\.parquet$")
@@ -174,7 +177,7 @@ def already_done(ctx: RunContext) -> bool:
     if exp is None:
         return False
     keys = ("target_id", "horizon", "window", "feature_set", "model_family",
-            "encoding", "stage", "data_version")
+            "encoding", "stage", "data_version", "protocol_version")
     tags = ctx.tags()
     clauses = [f"tags.{k} = '{tags[k]}'" for k in keys]
     clauses.append("attributes.status = 'FINISHED'")

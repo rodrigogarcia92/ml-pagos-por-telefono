@@ -3,19 +3,31 @@
     python -m src.model_training.train --target t2 --horizon 1 --window w2019 \
         --model xgboost --feature-set FS3_activity --stage cv
 
-`run(cfg)` is the real entry point; the CLI is a thin wrapper, so sweep.py calls
-the FUNCTION rather than spawning subprocesses -- which is also what makes the
+Two halves, so that sweeps can parallelise the expensive one safely:
+
+  fit_config(cfg) -> FitResult     ALL the computation; touches no MLflow at all.
+  log_config(fit) -> RunResult     ALL the logging; does no modelling.
+  run(cfg)                         the two in sequence.
+
+The split exists because the tracking server is a single uvicorn worker over
+SQLite. Joblib workers call fit_config and RETURN results; the parent process
+alone calls log_config. One writer, always (sweep.py). A worker that crashes
+cannot leave a half-written run behind, because it never held a handle to one.
+
+`run(cfg)` is the real entry point and the CLI a thin wrapper, so sweep.py calls
+functions rather than spawning subprocesses -- which is also what makes the
 Vertex demo at roadmap step 14 a config change rather than a refactor.
 
 The three stages (docs/training_plan.md 7.3):
 
-  A  tune     inner expanding CV inside the training portion. Creates NO MLflow
-              runs; the whole search is logged as tuning_results.csv on the
-              Stage B parent (8.0).
+  A  tune     inner expanding CV INSIDE THE CV PERIOD (never the holdout).
+              Creates NO MLflow runs; the whole search is logged as
+              tuning_results.csv on the Stage B parent (8.0).
   B  cv       outer expanding CV with hyperparameters frozen. Parent + one
-              child per fold.
+              child per fold. Mildly optimistic by construction -- Stage A saw the
+              last inner folds' targets -- and flagged as such (7.3).
   C  holdout  the reserved final months, evaluated ONCE, for the selected
-              configuration only.
+              configuration only. One expanding-window fold per holdout origin.
 """
 
 from __future__ import annotations
@@ -28,6 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")  # no display on a headless sweep
 import matplotlib.pyplot as plt
 import mlflow
@@ -44,6 +57,10 @@ CONFIG_DIR = Path("configs")
 HOLDOUT_MONTHS = {"w2019": 12, "w2021": 12, "w2024": 6}
 SEED = 26
 
+# Fold counts below this are demonstrations, not evaluations
+# (training_plan.md 6.4 rule 4).
+MIN_EVALUATION_FOLDS = 8
+
 
 @dataclass
 class RunConfig:
@@ -56,6 +73,26 @@ class RunConfig:
     encoding: str | None = None
     snapshot: str | None = None
     tune: dict = field(default_factory=dict)
+
+
+@dataclass
+class FitResult:
+    """Everything computed for one configuration. Picklable, MLflow-free."""
+
+    cfg: RunConfig
+    snapshot_path: str
+    frame: dataset.Frame
+    columns: list[str]
+    encoding_tag: str
+    n_cv: int
+    n_hold: int
+    eval_folds: list
+    best_params: dict
+    tuning_table: pd.DataFrame
+    per_fold: list[dict]
+    preds: list
+    actuals: list
+    dates: list
 
 
 @dataclass
@@ -80,8 +117,25 @@ def load_feature_sets() -> dict[str, list[str]]:
     return {k: _flatten(v) for k, v in raw.items()}
 
 
-def _prepare(X_tr, X_te):
-    """Impute then scale, FITTED ON TRAINING ROWS ONLY.
+def context_for(cfg: RunConfig, snapshot_path: str) -> tracking.RunContext:
+    """The ONE place a RunConfig becomes a RunContext.
+
+    sweep.py uses this to decide whether a run already exists; train uses it to
+    tag the run it creates. Two hand-built copies disagreed on `encoding` once,
+    and resumability silently never matched a feature model.
+    """
+    naive = cfg.model_family in registry.NAIVE_FAMILIES
+    return tracking.RunContext(
+        target_id=cfg.target_id, horizon=cfg.horizon, window=cfg.window,
+        feature_set="none" if naive else cfg.feature_set,
+        model_family=cfg.model_family,
+        encoding=cfg.encoding or registry.default_encoding(cfg.model_family),
+        stage=cfg.stage, snapshot_path=snapshot_path,
+    )
+
+
+def _prepare(X_tr, *others):
+    """Impute then scale, FITTED ON TRAINING ROWS ONLY; apply to everything else.
 
     Fitting StandardScaler on the full series before splitting is the most
     common silent leak in this kind of project: the scaler carries the test
@@ -90,11 +144,16 @@ def _prepare(X_tr, X_te):
     """
     imp = SimpleImputer(strategy="median").fit(X_tr)
     sc = StandardScaler().fit(imp.transform(X_tr))
-    return sc.transform(imp.transform(X_tr)), sc.transform(imp.transform(X_te))
+    # An empty array (the h=1 purge gap) is passed through: sklearn's transform
+    # raises on zero samples, and an empty gap needs no scaling.
+    return tuple(
+        sc.transform(imp.transform(a)) if len(a) else a for a in (X_tr, *others)
+    )
 
 
 def _score_fold(model, frame, tr, te) -> tuple[dict, np.ndarray]:
-    Xtr, Xte = frame.X.to_numpy()[tr], frame.X.to_numpy()[te]
+    X_all = frame.X.to_numpy()
+    Xtr, Xte = X_all[tr], X_all[te]
     ytr = frame.y.to_numpy()[tr]
     ctx_tr, ctx_te = frame.ctx.iloc[tr], frame.ctx.iloc[te]
 
@@ -102,9 +161,14 @@ def _score_fold(model, frame, tr, te) -> tuple[dict, np.ndarray]:
         model.fit(None, ytr, ctx_tr)
         z_hat = model.predict(None, ctx_te)
     else:
-        Xtr_s, Xte_s = _prepare(Xtr, Xte)
+        # Rows strictly between the end of training and the test origin: the
+        # purge. Their FEATURES are known when the test origin is forecast; only
+        # their targets are withheld. Models that forecast through the gap
+        # (SARIMAX) get them; everyone else ignores them.
+        gap = X_all[tr[-1] + 1: te[0]]
+        Xtr_s, Xte_s, gap_s = _prepare(Xtr, Xte, gap)
         model.fit(Xtr_s, ytr, None)
-        z_hat = model.predict(Xte_s, None)
+        z_hat = model.predict(Xte_s, {"X_gap": gap_s} if getattr(model, "wants_gap", False) else None)
 
     # Everything below is on LEVELS. Never score on z (training_plan.md 1.2).
     yhat = metrics.reconstruct(ctx_te["anchor"].to_numpy(), z_hat)
@@ -117,44 +181,75 @@ def _score_fold(model, frame, tr, te) -> tuple[dict, np.ndarray]:
     return m, yhat
 
 
-def _tune(frame, cfg, folds) -> tuple[dict, pd.DataFrame]:
-    """Stage A. Grid search on INNER folds inside the training portion only.
+def _pyval(v):
+    """numpy scalar -> plain Python, so params survive YAML/JSON and model ctors."""
+    return v.item() if hasattr(v, "item") else v
+
+
+def _tune(frame, cfg, n_cv) -> tuple[dict, pd.DataFrame]:
+    """Stage A. Grid search on INNER folds drawn from the CV period only.
+
+    The inner folds are the last `max_inner_folds` origins of the CV period, each
+    trained on everything before it. The holdout is never indexed: every index
+    below `n_cv`, asserted rather than assumed.
 
     Returns the winning parameters and the complete search as a table. The table
     is logged as one artifact; the ~35k individual fits are not logged at all,
     because MLflow run creation would cost one to two orders of magnitude more
     than the modelling itself (training_plan.md 8.0).
+
+    HISTORY. The first version took the training portion of the FIRST outer fold,
+    which has exactly `min_train` rows, so the inner-fold generator returned
+    nothing and tuning was silently skipped: every s0_smoke run logged
+    n_candidates_evaluated=0 and used library defaults. The winner was also read
+    from a DataFrame row, which would have turned ints into floats and None into
+    NaN. Both fixed; test_tuning_* pins them.
     """
-    grid = cfg.tune or registry.default_grid(cfg.model_family)
+    grid = registry.grid_for(cfg.model_family, cfg.feature_set, cfg.tune)
     if not grid:
         return {}, pd.DataFrame()
 
-    n_train = int(folds[0].train[-1]) + 1
     inner = splits.inner_folds(
-        n_train, horizon=cfg.horizon, min_train=splits.MIN_TRAIN[cfg.window]
+        n_cv, horizon=cfg.horizon, min_train=splits.MIN_TRAIN[cfg.window]
     )
     if not inner:
-        return {}, pd.DataFrame()
+        raise ValueError(
+            f"{cfg.window} h={cfg.horizon}: {n_cv} CV rows leave no inner folds for "
+            f"min_train={splits.MIN_TRAIN[cfg.window]}. Refusing to tune nothing and "
+            "report library defaults as tuned."
+        )
+    assert max(int(f.test.max()) for f in inner) < n_cv, "Stage A reached the holdout"
 
     keys = list(grid)
     rows = []
     for combo in itertools.product(*(grid[k] for k in keys)):
-        params = dict(zip(keys, combo))
+        params = {k: _pyval(v) for k, v in zip(keys, combo, strict=True)}
         scores = []
         for f in inner:
             model = registry.build(cfg.model_family, params, horizon=cfg.horizon)
             try:
                 m, _ = _score_fold(model, frame, f.train, f.test)
                 scores.append(m["mase"])
-            except (ValueError, FloatingPointError):
+            except (ValueError, FloatingPointError, np.linalg.LinAlgError):
+                # An infeasible combination (e.g. a seasonal order that does not
+                # fit the training length). Scored NaN, never chosen.
                 scores.append(np.nan)
-        rows.append({**params, "mase_inner_mean": np.nanmean(scores),
-                     "mase_inner_std": np.nanstd(scores), "n_inner_folds": len(inner)})
+        ok = [x for x in scores if np.isfinite(x)]
+        rows.append({
+            **params,
+            "mase_inner_mean": float(np.mean(ok)) if ok else float("nan"),
+            "mase_inner_std": float(np.std(ok)) if ok else float("nan"),
+            "n_ok_inner_folds": len(ok), "n_inner_folds": len(inner),
+        })
 
-    table = pd.DataFrame(rows).sort_values("mase_inner_mean")
-    best = {k: table.iloc[0][k] for k in keys}
-    # numpy scalars do not survive a YAML/JSON round trip cleanly
-    best = {k: (v.item() if hasattr(v, "item") else v) for k, v in best.items()}
+    finite = [r for r in rows if np.isfinite(r["mase_inner_mean"])]
+    if not finite:
+        raise RuntimeError(f"Every candidate failed in Stage A for {cfg}")
+    # Python values straight from `rows`: a DataFrame row would coerce int -> float
+    # and None -> NaN, which would break max_depth and drift_window.
+    winner = min(finite, key=lambda r: r["mase_inner_mean"])
+    best = {k: winner[k] for k in keys}
+    table = pd.DataFrame(rows).sort_values("mase_inner_mean", na_position="last")
     return best, table
 
 
@@ -170,14 +265,19 @@ def _forecast_plot(dates, actual, predicted, title: str) -> plt.Figure:
     return fig
 
 
-def run(cfg: RunConfig) -> RunResult:
+# --------------------------------------------------------------------------- #
+# Half one: compute
+# --------------------------------------------------------------------------- #
+def fit_config(cfg: RunConfig) -> FitResult:
+    """Stages A and B (or A and C) for one configuration. No MLflow."""
     snapshot_path = cfg.snapshot or str(latest_snapshot())
     panel, meta = dataset.load_snapshot(snapshot_path)
 
+    naive = cfg.model_family in registry.NAIVE_FAMILIES
     fs = load_feature_sets()
-    columns = [] if cfg.model_family in registry.NAIVE_FAMILIES else fs[cfg.feature_set]
-    encoding = cfg.encoding or ("onehot" if cfg.model_family in
-                                {"ridge", "elasticnet", "svr_rbf"} else "int")
+    columns = [] if naive else registry.model_columns(cfg.model_family, fs[cfg.feature_set])
+    ctx = context_for(cfg, snapshot_path)
+    encoding = ctx.encoding if columns else "int"   # "none" is a tag, not a build mode
 
     frame = dataset.build(
         panel, meta,
@@ -187,39 +287,61 @@ def run(cfg: RunConfig) -> RunResult:
 
     # The holdout is carved off the END and is invisible until Stage C.
     n_hold = HOLDOUT_MONTHS[cfg.window]
-    n_cv = len(frame.X) - n_hold
+    n_rows = len(frame.X)
+    n_cv = n_rows - n_hold
     if n_cv <= splits.MIN_TRAIN[cfg.window]:
         raise ValueError(f"{cfg.window}: {n_cv} CV rows is not enough for min_train")
 
-    folds = splits.make_folds(n_cv, window=cfg.window, horizon=cfg.horizon)
-    if not folds:
-        raise ValueError(f"No folds for {cfg.window} h={cfg.horizon}")
-
-    best_params, tuning_table = _tune(frame, cfg, folds)
-
-    ctx = tracking.RunContext(
-        target_id=cfg.target_id, horizon=cfg.horizon, window=cfg.window,
-        feature_set=cfg.feature_set if columns else "none",
-        model_family=cfg.model_family,
-        encoding=encoding if columns else "none",
-        stage=cfg.stage, snapshot_path=snapshot_path,
-    )
+    best_params, tuning_table = _tune(frame, cfg, n_cv)
 
     if cfg.stage == "holdout":
-        eval_folds = [splits.Fold(0, np.arange(0, n_cv), np.arange(n_cv, len(frame.X)))]
+        eval_folds = splits.holdout_folds(n_rows, n_cv=n_cv, horizon=cfg.horizon)
     else:
-        eval_folds = folds
+        eval_folds = splits.make_folds(n_cv, window=cfg.window, horizon=cfg.horizon)
+    if not eval_folds:
+        raise ValueError(f"No folds for {cfg.window} h={cfg.horizon} stage={cfg.stage}")
 
     per_fold, preds, actuals, dates = [], [], [], []
-    with tracking.parent_run(ctx) as parent:
+    for f in eval_folds:
+        model = registry.build(cfg.model_family, best_params, horizon=cfg.horizon)
+        m, yhat = _score_fold(model, frame, f.train, f.test)
+        per_fold.append(m)
+        preds.extend(yhat)
+        actuals.extend(frame.ctx["y_level"].to_numpy()[f.test])
+        dates.extend(frame.X.index[f.test])
+
+    return FitResult(
+        cfg=cfg, snapshot_path=snapshot_path, frame=frame, columns=columns,
+        encoding_tag=ctx.encoding if columns else "none",
+        n_cv=n_cv, n_hold=n_hold, eval_folds=eval_folds,
+        best_params=best_params, tuning_table=tuning_table,
+        per_fold=per_fold, preds=preds, actuals=actuals, dates=dates,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Half two: record
+# --------------------------------------------------------------------------- #
+def log_config(fit: FitResult) -> RunResult:
+    """Write one FitResult to MLflow. Called from ONE process only."""
+    cfg, frame = fit.cfg, fit.frame
+    ctx = context_for(cfg, fit.snapshot_path)
+    n_folds = len(fit.eval_folds)
+
+    note = None
+    if n_folds < MIN_EVALUATION_FOLDS:
+        note = (f"DEMONSTRATION, NOT AN EVALUATION: {n_folds} outer folds "
+                f"(< {MIN_EVALUATION_FOLDS}). training_plan.md 6.4 rule 4.")
+
+    with tracking.parent_run(ctx, description=note) as parent:
         mlflow.log_params({
-            **{f"hp_{k}": v for k, v in best_params.items()},
+            **{f"hp_{k}": v for k, v in fit.best_params.items()},
             "min_train": splits.MIN_TRAIN[cfg.window],
             "purge": cfg.horizon - 1,
-            "n_folds": len(eval_folds),
+            "n_folds": n_folds,
             "n_features": frame.X.shape[1],
-            "n_candidates_evaluated": len(tuning_table),
-            "holdout_months": n_hold,
+            "n_candidates_evaluated": len(fit.tuning_table),
+            "holdout_months": fit.n_hold,
             "seed": SEED,
         })
 
@@ -231,7 +353,7 @@ def run(cfg: RunConfig) -> RunResult:
             mlflow.log_input(
                 mlflow.data.from_pandas(
                     frame.X.assign(y=frame.y),
-                    source=snapshot_path,
+                    source=fit.snapshot_path,
                     name=f"{cfg.target_id}_h{cfg.horizon}_{cfg.window}_{cfg.feature_set}",
                     targets="y",
                 ),
@@ -240,19 +362,13 @@ def run(cfg: RunConfig) -> RunResult:
         except Exception:  # noqa: BLE001 -- provenance nicety, never worth failing a run
             pass
 
-        for f in eval_folds:
-            model = registry.build(cfg.model_family, best_params, horizon=cfg.horizon)
-            m, yhat = _score_fold(model, frame, f.train, f.test)
-            per_fold.append(m)
-            preds.extend(yhat)
-            actuals.extend(frame.ctx["y_level"].to_numpy()[f.test])
-            dates.extend(frame.X.index[f.test])
+        for f, m in zip(fit.eval_folds, fit.per_fold, strict=True):
             with tracking.fold_run(f.index):
                 mlflow.log_metrics(m)          # children: metrics only (8.5)
 
         agg = {}
-        for key in per_fold[0]:
-            vals = [d[key] for d in per_fold]
+        for key in fit.per_fold[0]:
+            vals = [d[key] for d in fit.per_fold]
             agg[f"{key}_mean"] = float(np.nanmean(vals))
             # The sd matters as much as the mean: a model that wins on average
             # by being wildly variable is not a better model.
@@ -262,26 +378,30 @@ def run(cfg: RunConfig) -> RunResult:
         # ---- artifacts, parent only (8.5) --------------------------------- #
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
-            pd.DataFrame({"obs_date": dates, "actual": actuals, "predicted": preds}) \
-                .to_csv(d / "predictions.csv", index=False)
-            if len(tuning_table):
-                tuning_table.to_csv(d / "tuning_results.csv", index=False)
+            pd.DataFrame({"obs_date": fit.dates, "actual": fit.actuals,
+                          "predicted": fit.preds}).to_csv(d / "predictions.csv", index=False)
+            if len(fit.tuning_table):
+                fit.tuning_table.to_csv(d / "tuning_results.csv", index=False)
             (d / "features.json").write_text(json.dumps({
                 "columns": list(frame.X.columns), "dropped": frame.dropped,
             }, indent=2))
             (d / "folds.json").write_text(json.dumps(
                 [{"fold": f.index, "train": f.train.tolist(), "test": f.test.tolist()}
-                 for f in eval_folds], indent=2))
+                 for f in fit.eval_folds], indent=2))
             frame.X.assign(y=frame.y).to_parquet(d / "training_frame.parquet")
-            fig = _forecast_plot(dates, actuals, preds, ctx.run_name)
+            fig = _forecast_plot(fit.dates, fit.actuals, fit.preds, ctx.run_name)
             fig.savefig(d / "forecast_vs_actual.png", dpi=120)
             plt.close(fig)
             mlflow.log_artifacts(str(d))
 
         return RunResult(
             run_id=parent.info.run_id, run_name=ctx.run_name,
-            metrics=agg, n_folds=len(eval_folds), best_params=best_params,
+            metrics=agg, n_folds=n_folds, best_params=fit.best_params,
         )
+
+
+def run(cfg: RunConfig) -> RunResult:
+    return log_config(fit_config(cfg))
 
 
 def main() -> None:

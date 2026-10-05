@@ -18,6 +18,8 @@ lines of train.py. If it is not, the abstraction is wrong.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
@@ -123,6 +125,77 @@ class SklearnAdapter:
         return self.estimator.predict(X)
 
 
+class SarimaxAdapter:
+    """SARIMAX on the differenced target z, with the feature set as exogenous input.
+
+    The econometrician's model (training_plan.md 7.1). z is ALREADY a log
+    difference, so d = 0 (7.2 grid) and the seasonal difference D in {0, 1} is the
+    only differencing left to choose.
+
+    WHY `wants_gap`. At h=3 the purge removes two origins between the end of
+    training and the test origin, so a one-step-ahead forecast would silently
+    treat the test origin as immediately following the last training row. The
+    model is instead asked for (purge + 1) steps and the LAST is used. The
+    intermediate exogenous rows are the features of the gap origins -- known at
+    forecast time (they are built from information at those origins' closes), so
+    using them leaks nothing; only their TARGETS are withheld. At h=1 the gap is
+    empty and this is an ordinary one-step forecast.
+    """
+
+    uses_context = False
+    wants_gap = True
+
+    def __init__(self, p=0, q=0, P=0, Q=0, D=0):
+        self.p, self.q, self.P, self.Q, self.D = int(p), int(q), int(P), int(Q), int(D)
+
+    def fit(self, X, y, ctx=None):
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+        # A constant under D=1 is a seasonal-drift term that the data cannot
+        # separate from the seasonal differencing; leave it out there.
+        trend = "c" if self.D == 0 else "n"
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            mod = SARIMAX(
+                np.asarray(y, dtype=float), exog=np.asarray(X, dtype=float),
+                order=(self.p, 0, self.q), seasonal_order=(self.P, self.D, self.Q, 12),
+                trend=trend, enforce_stationarity=False, enforce_invertibility=False,
+            )
+            self.res_ = mod.fit(disp=False, maxiter=100)
+        return self
+
+    def predict(self, X, ctx=None):
+        X = np.asarray(X, dtype=float)
+        gap = None if ctx is None else ctx.get("X_gap")
+        exog = X if gap is None or len(gap) == 0 else np.vstack([gap, X])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fc = np.asarray(self.res_.forecast(steps=len(exog), exog=exog))
+        return fc[-len(X):]
+
+
+# SARIMAX exogenous columns, fixed before any SARIMAX run (training_plan.md 11).
+# The plan says "exog capped at 8 columns" without saying which 8. Rule:
+#   * drop y_*       -- own history is the ARMA terms' job, and tuning p, q is how
+#                       the persistence ablation (FS0 -> FS1) is expressed here;
+#   * drop cal_month -- the seasonal terms (P, D, Q at lag 12) own the month effect,
+#                       and an integer month is meaningless to a linear model;
+#   * keep the first 8 of what remains, in the order feature_sets.yaml declares.
+SARIMAX_MAX_EXOG = 8
+
+
+def model_columns(model_family: str, columns: list[str]) -> list[str]:
+    """The columns a model actually receives from a feature set."""
+    if model_family != "sarimax":
+        return columns
+    keep = [c for c in columns if not c.startswith("y_") and c != "cal_month"]
+    return keep[:SARIMAX_MAX_EXOG]
+
+
+def _sarimax(**kw):
+    return SarimaxAdapter(**kw)
+
+
 def _ridge(**kw):
     return SklearnAdapter(Ridge(**kw))
 
@@ -149,8 +222,8 @@ def _xgb(**kw):
     )
 
 
-# name -> (factory, default search space). The YAML in configs/models/ narrows
-# or overrides the space; this is the full menu.
+# name -> (factory, default search space). A sweep spec's `tune:` block narrows
+# or overrides the space per model (sweep.py); this is the full menu.
 MODELS: dict[str, tuple] = {
     "naive_last": (lambda **kw: NaiveLast(), {}),
     "naive_drift": (lambda **kw: NaiveDrift(**kw), {"drift_window": [None, 12, 24]}),
@@ -172,6 +245,10 @@ MODELS: dict[str, tuple] = {
             "n_estimators": [300, 800], "max_depth": [3, 5, None],
             "min_samples_leaf": [1, 3, 5], "max_features": [0.3, 0.6, 1.0],
         },
+    ),
+    "sarimax": (
+        _sarimax,
+        {"p": [0, 1, 2], "q": [0, 1, 2], "P": [0, 1], "Q": [0, 1], "D": [0, 1]},
     ),
     "xgboost": (
         _xgb,
@@ -196,3 +273,30 @@ def build(model_family: str, params: dict, *, horizon: int):
 
 def default_grid(model_family: str) -> dict:
     return MODELS[model_family][1]
+
+
+def grid_for(model_family: str, feature_set: str, override: dict | None = None) -> dict:
+    """The search space for one configuration.
+
+    SARIMAX on FS0_calendar is pinned to p = q = 0. FS0 is "how much is pure
+    calendar" and FS1 is "how much is persistence"; if the ARMA terms were free
+    on FS0, the two sets would differ only in exogenous columns that SARIMAX drops
+    anyway (model_columns), and the ablation would compare a model with itself.
+    """
+    grid = dict(override) if override else dict(default_grid(model_family))
+    if model_family == "sarimax" and feature_set.startswith("FS0"):
+        grid["p"], grid["q"] = [0], [0]
+    return grid
+
+
+# What the encoding tag says. Defined once so that train.py (which writes the tag)
+# and sweep.py (which looks it up to decide whether a run already exists) cannot
+# disagree. They did, once: sweep looked for "none" on models that were tagged
+# "int" or "onehot", so resumability never matched a feature model.
+LINEAR_FAMILIES = {"ridge", "elasticnet", "svr_rbf"}
+
+
+def default_encoding(model_family: str) -> str:
+    if model_family in NAIVE_FAMILIES:
+        return "none"
+    return "onehot" if model_family in LINEAR_FAMILIES else "int"

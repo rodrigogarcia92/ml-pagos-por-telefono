@@ -294,3 +294,144 @@ def test_t6_shuffled_target_has_no_skill(synthetic):
         f"mean skill {np.nanmean(skills):.3f} over a random walk on a SHUFFLED "
         "target. Information is crossing the train/test split."
     )
+
+
+# --------------------------------------------------------------------------- #
+# v1.4 -- Stage A, Stage C, SARIMAX, sweep expansion, resume key
+# --------------------------------------------------------------------------- #
+def _frame(synthetic, *, model="ridge", fs="FS1_autoregressive", h=1, window="w2019"):
+    from src.model_training import registry
+
+    panel, meta = synthetic
+    cols = [] if fs == "none" else registry.model_columns(model, load_feature_sets()[fs])
+    enc = "onehot" if model in registry.LINEAR_FAMILIES else "int"
+    return dataset.build(panel, meta, target_id="t2" if h == 1 else "t3", horizon=h,
+                         window=window, columns=cols, encoding=enc)
+
+
+def test_tuning_runs_and_never_reaches_the_holdout(synthetic):
+    """Regression: Stage A silently tuned NOTHING (n_candidates_evaluated=0 on every
+    s0_smoke run) because inner folds were drawn from the first outer fold's 36 rows."""
+    from src.model_training.train import HOLDOUT_MONTHS, RunConfig, _tune
+
+    frame = _frame(synthetic)
+    n_cv = len(frame.X) - HOLDOUT_MONTHS["w2019"]
+    cfg = RunConfig("t2", 1, "w2019", "ridge", "FS1_autoregressive",
+                    tune={"alpha": [0.1, 1.0, 10.0]})
+    best, table = _tune(frame, cfg, n_cv)
+    assert len(table) == 3, "the grid was not evaluated"
+    assert table["n_ok_inner_folds"].min() > 0
+    assert best["alpha"] in (0.1, 1.0, 10.0)
+
+
+def test_tuning_preserves_python_types(synthetic):
+    """A DataFrame row turns ints into floats and None into NaN: max_depth=3.0 and
+    drift_window=nan. The winner must come back exactly as it went in."""
+    from src.model_training.train import HOLDOUT_MONTHS, RunConfig, _tune
+
+    frame = _frame(synthetic, model="naive_drift", fs="none")
+    n_cv = len(frame.X) - HOLDOUT_MONTHS["w2019"]
+    cfg = RunConfig("t2", 1, "w2019", "naive_drift", "none")
+    best, _ = _tune(frame, cfg, n_cv)
+    assert best["drift_window"] is None or isinstance(best["drift_window"], int)
+
+    frame = _frame(synthetic, model="xgboost")
+    cfg = RunConfig("t2", 1, "w2019", "xgboost", "FS1_autoregressive",
+                    tune={"max_depth": [2, 3], "n_estimators": [20]})
+    best, _ = _tune(frame, cfg, len(frame.X) - HOLDOUT_MONTHS["w2019"])
+    assert type(best["max_depth"]) is int and type(best["n_estimators"]) is int
+
+
+@pytest.mark.parametrize("h", [1, 3])
+def test_holdout_folds_are_expanding_and_purged(h):
+    n_rows, n_hold = 90, 12
+    n_cv = n_rows - n_hold
+    folds = splits.holdout_folds(n_rows, n_cv=n_cv, horizon=h)
+    assert len(folds) == n_hold
+    for f in folds:
+        assert f.test[0] >= n_cv                          # every test origin is holdout
+        assert f.train.max() + (h - 1) < f.test.min()     # purge respected
+        assert len(np.intersect1d(f.train, f.test)) == 0
+    assert folds[-1].train.max() > folds[0].train.max()   # expanding, not one fixed fit
+
+
+def test_s2_spec_expands_to_the_planned_66_parents():
+    import yaml
+    from pathlib import Path
+    from src.model_training import sweep
+
+    spec = yaml.safe_load(Path("configs/sweeps/s2_proxy_grid.yaml").read_text(encoding="utf-8"))
+    runs = sweep.expand(spec, "data/processed/panel_x.parquet")
+    assert len(runs) == 66                                 # training_plan.md 7.2
+    sar = [r for r in runs if r.model_family == "sarimax"]
+    assert len(sar) == 6
+    assert {r.feature_set for r in sar} == {"FS0_calendar", "FS1_autoregressive", "FS2_cash"}
+    assert len({(r.target_id, r.model_family, r.feature_set, r.window) for r in runs}) == 66
+
+
+def test_naive_models_run_once_regardless_of_feature_sets():
+    import yaml
+    from pathlib import Path
+    from src.model_training import sweep
+
+    spec = yaml.safe_load(Path("configs/sweeps/s1_baselines.yaml").read_text(encoding="utf-8"))
+    assert len(sweep.expand(spec, "data/processed/panel_x.parquet")) == 20
+
+
+def test_resume_key_encoding_matches_what_train_tags():
+    """Regression: sweep looked up encoding='none' for runs train.py had tagged
+    'int'/'onehot', so already_done() never matched a feature model."""
+    from src.model_training.train import RunConfig, context_for
+
+    for model, enc in [("ridge", "onehot"), ("elasticnet", "onehot"), ("svr_rbf", "onehot"),
+                       ("xgboost", "int"), ("rf", "int"), ("sarimax", "int"),
+                       ("naive_calendar", "none")]:
+        fs = "none" if model.startswith("naive") else "FS1_autoregressive"
+        ctx = context_for(RunConfig("t2", 1, "w2019", model, fs), "data/processed/panel_x.parquet")
+        assert ctx.encoding == enc, model
+
+
+def test_sarimax_exog_rule_is_fixed_and_capped():
+    from src.model_training import registry
+
+    fs = load_feature_sets()
+    for name in ("FS0_calendar", "FS1_autoregressive", "FS2_cash"):
+        cols = registry.model_columns("sarimax", fs[name])
+        assert len(cols) <= registry.SARIMAX_MAX_EXOG
+        assert not any(c.startswith("y_") or c == "cal_month" for c in cols)
+    assert len(registry.model_columns("sarimax", fs["FS2_cash"])) == 8
+    assert registry.model_columns("ridge", fs["FS2_cash"]) == fs["FS2_cash"]   # others untouched
+
+
+def test_sarimax_fs0_is_pinned_to_no_arma_terms():
+    from src.model_training import registry
+
+    g0 = registry.grid_for("sarimax", "FS0_calendar")
+    g1 = registry.grid_for("sarimax", "FS1_autoregressive")
+    assert g0["p"] == [0] and g0["q"] == [0]
+    assert g1["p"] == [0, 1, 2] and g1["q"] == [0, 1, 2]
+
+
+def test_sarimax_forecasts_through_the_purge_gap():
+    from src.model_training.registry import SarimaxAdapter
+
+    rng = np.random.default_rng(1)
+    X = rng.standard_normal((60, 3))
+    y = 0.5 * X[:, 0] + 0.05 * rng.standard_normal(60)
+    m = SarimaxAdapter(p=1, q=0, P=0, Q=0, D=0).fit(X[:50], y[:50])
+    one = m.predict(X[50:51], None)
+    gapped = m.predict(X[52:53], {"X_gap": X[50:52]})      # h=3: two purged rows between
+    assert one.shape == (1,) and gapped.shape == (1,)
+    assert np.isfinite(one).all() and np.isfinite(gapped).all()
+
+
+def test_sarimax_end_to_end_one_fold(synthetic):
+    """Fit and score through the real _score_fold, with a gap, offline."""
+    from src.model_training import registry
+    from src.model_training.train import _score_fold
+
+    frame = _frame(synthetic, model="sarimax", fs="FS1_autoregressive", h=3)
+    folds = splits.make_folds(len(frame.X) - 12, window="w2019", horizon=3)
+    model = registry.build("sarimax", {"p": 1, "q": 0, "P": 0, "Q": 0, "D": 0}, horizon=3)
+    m, yhat = _score_fold(model, frame, folds[0].train, folds[0].test)
+    assert np.isfinite(m["mase"]) and np.isfinite(yhat).all()
