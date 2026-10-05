@@ -21,6 +21,9 @@ __pycache__/
 # --- Derived data ----------------------------------------------------------
 # data/raw/ IS committed: 21 small JSON snapshots (~80 KB) that make the whole
 # pipeline reproducible from the repo alone. Everything below is regenerable.
+# That includes the training snapshots in data/processed/ — panel_*.parquet and
+# series_meta_*.csv are rebuilt by snapshot.py from the warehouse, which is in
+# turn rebuilt from data/raw/. See training_plan.md §4.0.
 data/interim/
 data/processed/
 data/external/
@@ -29,7 +32,17 @@ data/external/
 # --- Models & experiments --------------------------------------------------
 models/*
 !models/.gitkeep
+# MLflow. NOTE: gitignore has no inline comments -- text after a pattern
+# becomes part of the pattern, which silently un-ignores it.
+# mlflow/ holds the SQLite tracking DB and its dated backups. It IS the
+# experiment history and lives ONLY on the development machine (artifacts go to GCS, runs do not).
+mlflow/
+# MLflow's default file store; unused, but easy to create by accident by
+# running without --backend-store-uri.
 mlruns/
+# local artifact root if --serve-artifacts is ever dropped
+mlartifacts/
+# a stray DB at repo root (mlflow/ covers the real one)
 mlflow.db
 
 # --- Reports ---------------------------------------------------------------
@@ -47,3 +60,7 @@ profiles.yml
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# --- Tooling scratch (not part of the project) -----------------------------
+.kilo/
+Claude outputs/
