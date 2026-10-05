@@ -49,10 +49,17 @@ TARGETS = {
     "t1": {"cols": ["n_transf_intra_agg"], "horizon": 1},
 }
 
+# First TARGET month of each estimation window (protocol 1.6, O-10). There is no
+# end date on purpose: the last row is the last month whose target has been
+# published, i.e. whatever the `valid` mask leaves in build(). The origin range
+# is derived from it: origin = target - (horizon - kappa) months, so the same
+# window covers the same calendar target months at h=1 and h=3. Bounding the
+# ORIGIN instead (protocols 1.2-1.5) left the newest published month unused as a
+# target and shifted the final holdout by a different amount at each horizon.
 WINDOWS = {
-    "w2019": ("2019-01-01", "2026-06-01"),
-    "w2021": ("2021-01-01", "2026-06-01"),
-    "w2024": ("2024-01-01", "2026-06-01"),
+    "w2019": "2019-01-01",
+    "w2021": "2021-01-01",
+    "w2024": "2024-01-01",
 }
 
 # Peru national holidays with fixed dates. Movable feasts (Jueves and Viernes
@@ -139,6 +146,8 @@ class Frame:
     feature_set: str
     encoding: str
     dropped: list[str]     # columns removed as all-null or zero-variance
+    target_start: pd.Timestamp | None = None   # first TARGET month in the frame
+    target_end: pd.Timestamp | None = None     # last TARGET month in the frame
 
 
 def load_snapshot(panel_path: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -273,8 +282,9 @@ def build(
         raise ValueError(f"encoding must be 'int' or 'onehot', got {encoding!r}")
 
     # --- window, then drop rows that cannot be complete ----------------------
-    lo, hi = WINDOWS[window]
-    keep = (X.index >= lo) & (X.index <= hi)
+    # The window bounds the TARGET month (O-10). Feature history is still read
+    # from the full panel above, so lags may look back before the window start.
+    keep = np.asarray(target_months >= pd.Timestamp(WINDOWS[window]))
     X, z, ctx = X.loc[keep], z.loc[keep], ctx.loc[keep]
 
     valid = X.notna().all(axis=1) & z.notna() & ctx[["anchor", "y_level"]].notna().all(axis=1)
@@ -287,7 +297,10 @@ def build(
     dropped = [c for c in X.columns if X[c].nunique(dropna=False) <= 1]
     X = X.drop(columns=dropped)
 
+    tgt = X.index + pd.DateOffset(months=horizon - kappa_y)
     return Frame(
         X=X, y=z, ctx=ctx, horizon=horizon, window=window,
         feature_set="", encoding=encoding, dropped=dropped,
+        target_start=tgt.min() if len(tgt) else None,
+        target_end=tgt.max() if len(tgt) else None,
     )

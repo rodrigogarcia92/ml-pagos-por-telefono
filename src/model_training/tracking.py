@@ -42,7 +42,7 @@ os.environ.setdefault("MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", "true")
 # docs/training_plan.md. Part of the resume key (already_done), so bumping it
 # makes every earlier run invisible to a sweep -- on purpose: runs made under a
 # different protocol are not comparable and must not satisfy "already done".
-PROTOCOL_VERSION = "1.5"
+PROTOCOL_VERSION = "1.6"
 EXPERIMENT_PREFIX = os.getenv("MLFLOW_EXPERIMENT_PREFIX", "26.1__")
 
 _SNAPSHOT_RE = re.compile(r"panel_(?P<version>.+)\.parquet$")

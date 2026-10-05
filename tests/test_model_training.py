@@ -156,6 +156,10 @@ def test_t3_feature_sets_strictly_nested():
     ("w2021", 1, 17), ("w2021", 3, 13),
 ])
 def test_t4_fold_counts_match_the_plan(window, horizon, expected):
+    # Pure splits.py arithmetic on n_cv values copied from the plan. The n_cv
+    # values themselves are NOT re-derived here: under target-month windows
+    # (protocol 1.6, O-10) they change with the next snapshot, and the plan's
+    # table is a marked TODO until then. This test pins the formula, not the data.
     n_cv = {("w2019", 1): 65, ("w2019", 3): 63,
             ("w2021", 1): 41, ("w2021", 3): 39}[(window, horizon)]
     folds = splits.make_folds(n_cv, window=window, horizon=horizon)
@@ -435,3 +439,92 @@ def test_sarimax_end_to_end_one_fold(synthetic):
     model = registry.build("sarimax", {"p": 1, "q": 0, "P": 0, "Q": 0, "D": 0}, horizon=3)
     m, yhat = _score_fold(model, frame, folds[0].train, folds[0].test)
     assert np.isfinite(m["mase"]) and np.isfinite(yhat).all()
+
+
+# --------------------------------------------------------------------------- #
+# v1.6 / O-10 -- windows bound the TARGET month; origin range derives from kappa
+# --------------------------------------------------------------------------- #
+@pytest.fixture(scope="module")
+def production_like(synthetic):
+    """Mirrors the real snapshot: panel index runs to 2026-08 (macro is ahead of
+    payments), payments are published only through 2026-06 (kappa=2, O-9)."""
+    panel, meta = synthetic
+    idx = pd.date_range("2015-01-01", "2026-08-01", freq="MS")
+    p = panel.reindex(idx)
+    p.loc["2026-07-01":, "n_transf_intra_agg"] = np.nan
+    # kappa=0/1 series are observed through the panel edge; kappa=2 ones lag it.
+    for col, k in meta["kappa"].items():
+        if col != "n_transf_intra_agg":
+            p[col] = p[col].ffill()
+    return p, meta
+
+
+def _build(pl, h, window, cols=()):
+    p, m = pl
+    return dataset.build(p, m, target_id="t2" if h == 1 else "t3", horizon=h,
+                         window=window, columns=list(cols), encoding="int")
+
+
+@pytest.mark.parametrize("window,start", [("w2019", "2019-01-01"), ("w2021", "2021-01-01"),
+                                          ("w2024", "2024-01-01")])
+@pytest.mark.parametrize("h", [1, 3])
+def test_window_bounds_the_target_month(production_like, window, start, h):
+    """(i) Every row's TARGET month is inside the window and the first one IS the
+    window start. With no lag features nothing forces a later start; with the
+    FS1 lags the history lies before the window, so the start is still exact."""
+    fs = load_feature_sets()
+    for cols in ([], fs["FS1_autoregressive"]):
+        f = _build(production_like, h, window, cols)
+        tgt = f.X.index + pd.DateOffset(months=h - 2)
+        assert tgt.min() == pd.Timestamp(start), "first target month is not the window start"
+        assert (tgt >= pd.Timestamp(start)).all()
+        assert f.target_start == tgt.min() and f.target_end == tgt.max()
+
+
+def test_window_does_not_truncate_feature_history(production_like):
+    """Lags may reach before the window start: the first row is complete, and its
+    y_d12 comes from the panel a year before the window, not from NaN-dropping."""
+    p, _ = production_like
+    f = _build(production_like, 1, "w2024", ["y_d12"])
+    first = f.X.index[0]
+    assert first == pd.Timestamp("2024-02-01")              # target 2024-01 -> origin t+1 at h=1
+    assert f.X.notna().all().all()
+    ly = np.log(p["n_transf_intra_agg"])
+    assert f.X["y_d12"].iloc[0] == pytest.approx(
+        (ly - ly.shift(1)).loc[first - pd.DateOffset(months=12)])
+
+
+@pytest.mark.parametrize("window", ["w2019", "w2021", "w2024"])
+def test_holdout_is_the_same_target_months_at_both_horizons(production_like, window):
+    """(ii) The final HOLDOUT_MONTHS rows are contiguous TARGET months and the
+    SAME calendar months at h=1 and h=3. Under origin windows (<= 1.5) they were
+    shifted by (h - kappa) and so differed between horizons."""
+    from src.model_training.train import HOLDOUT_MONTHS
+
+    n = HOLDOUT_MONTHS[window]
+    hold = {}
+    for h in (1, 3):
+        f = _build(production_like, h, window)
+        tgt = f.X.index[-n:] + pd.DateOffset(months=h - 2)
+        assert len(tgt) == n
+        assert (tgt.to_period("M")[1:] - tgt.to_period("M")[:-1]).map(lambda x: x.n).tolist() == [1] * (n - 1)
+        hold[h] = list(tgt)
+    assert hold[1] == hold[3]
+    assert hold[1][-1] == pd.Timestamp("2026-06-01")        # last published month
+
+
+@pytest.mark.parametrize("h", [1, 3])
+def test_last_published_month_is_a_target_row(production_like, h):
+    """(iii) The newest observed payments month (2026-06) is a target at BOTH
+    horizons. The old origin bound (<= 2026-06) made h=1 end at 2026-05."""
+    p, _ = production_like
+    last_obs = p["n_transf_intra_agg"].last_valid_index()
+    assert last_obs == pd.Timestamp("2026-06-01")
+    f = _build(production_like, h, "w2019")
+    assert f.target_end == last_obs
+    assert f.ctx["y_level"].iloc[-1] == p.loc[last_obs, "n_transf_intra_agg"]
+
+
+def test_protocol_version_is_1_6():
+    from src.model_training import tracking
+    assert tracking.PROTOCOL_VERSION == "1.6"

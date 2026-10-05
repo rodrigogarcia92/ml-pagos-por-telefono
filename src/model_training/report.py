@@ -102,7 +102,8 @@ def add_skill_drift(df: pd.DataFrame) -> pd.DataFrame:
     return _add_skill(df, "naive_drift", "skill_drift")
 
 
-def detail(target: str, horizon: int, top: pd.DataFrame, stage: str) -> None:
+def detail(target: str, horizon: int, top: pd.DataFrame, stage: str,
+           protocol: str = tracking.PROTOCOL_VERSION) -> None:
     """Everything needed to reproduce one run, printed per run.
 
     The same facts are all in the MLflow UI -- this exists because a terminal
@@ -120,7 +121,8 @@ def detail(target: str, horizon: int, top: pd.DataFrame, stage: str) -> None:
             filter_string=(
                 f"tags.model_family = '{row.model_family}' and "
                 f"tags.feature_set = '{row.feature_set}' and "
-                f"tags.window = '{row.window}' and tags.stage = '{stage}'"
+                f"tags.window = '{row.window}' and tags.stage = '{stage}' and "
+                f"tags.protocol_version = '{protocol}'"   # never show a run from another protocol
             ),
             max_results=1,
         )
@@ -206,7 +208,7 @@ def main() -> None:
     print("  with skill_drift <= 0 has not beaten persistence plus trend.\n")
 
     if a.detail:
-        detail(a.target, a.horizon, show.head(a.detail), a.stage)
+        detail(a.target, a.horizon, show.head(a.detail), a.stage, a.protocol)
 
     if a.csv:
         df.to_csv(a.csv, index=False)

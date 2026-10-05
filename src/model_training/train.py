@@ -285,7 +285,10 @@ def fit_config(cfg: RunConfig) -> FitResult:
         columns=columns, encoding=encoding,
     )
 
-    # The holdout is carved off the END and is invisible until Stage C.
+    # The holdout is carved off the END and is invisible until Stage C. Rows are
+    # one per target month and the window bounds the target month (protocol 1.6,
+    # O-10), so this is the FINAL n_hold TARGET MONTHS -- the same calendar months
+    # at h=1 and h=3, whatever kappa is.
     n_hold = HOLDOUT_MONTHS[cfg.window]
     n_rows = len(frame.X)
     n_cv = n_rows - n_hold
@@ -341,7 +344,9 @@ def log_config(fit: FitResult) -> RunResult:
             "n_folds": n_folds,
             "n_features": frame.X.shape[1],
             "n_candidates_evaluated": len(fit.tuning_table),
-            "holdout_months": fit.n_hold,
+            "holdout_months": fit.n_hold,   # the final N target months (h-independent)
+            "window_target_start": f"{frame.target_start:%Y-%m}",
+            "window_target_end": f"{frame.target_end:%Y-%m}",
             "seed": SEED,
         })
 
