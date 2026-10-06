@@ -316,6 +316,12 @@ About 180 offline tests. They cover leakage guards (including a shuffled-target 
 - [`docs/training_plan.md`](docs/training_plan.md): the pre-registered modeling protocol and deviations log
 - [`docs/data_sources.md`](docs/data_sources.md): data sources and warehouse decisions
 
+## Acknowledgements
+
+**Author:** Rodrigo García Sánchez: problem framing, methodology, modeling decisions and final judgment.
+
+**AI assistance:** this project was developed with [Claude](https://www.anthropic.com/claude) (Anthropic) as an AI assistant, used for code implementation (via Claude Code), code and method review, analysis support and documentation drafting. Every change was reviewed and accepted by the author.
+
 ---
 
 *Portfolio project by Rodrigo García Sánchez. Uses public BCRP data; not affiliated with BCRP, BCP/Yape, Plin or any bank. Forecasts are for illustration and are not financial advice.*

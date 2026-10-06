@@ -2,7 +2,7 @@
 
 **Machine:** the development machine (Windows 11, PowerShell)
 **Project root:** `<repo root>`
-**Companions:** `docs/mlflow_setup.md` (one-time setup) · `docs/training_plan.md` (what to run and why) · `docs/methodology.md` (architecture)
+**Companions:** `docs/mlflow_setup.md` (one-time setup) · `docs/training_plan.md` (what to run and why) · `docs/project_outline.md` (architecture)
 
 > **What this is.** Every command, in order, from a cold machine to a finished
 > sweep. Written to be followed without thinking, because the thinking is in the

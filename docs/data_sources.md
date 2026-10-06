@@ -2,7 +2,7 @@
 
 **Status:** v0.2 — storage layer migrated from PostgreSQL to BigQuery (2026-08-22)
 **Roadmap step:** 3 — Warehouse setup & load
-**Source of truth for decisions below:** `methodology.md` §3–§5
+**Source of truth for decisions below:** `project_outline.md` §3–§5
 
 > **Changelog v0.1 → v0.2:** PostgreSQL `raw`/`staging` schemas replaced by BigQuery
 > datasets. §5.2's open decision (who owns `staging`) is now **closed: dbt owns it.**
