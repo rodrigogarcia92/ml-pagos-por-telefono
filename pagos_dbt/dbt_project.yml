@@ -10,6 +10,14 @@ test-paths: ["tests"]
 seed-paths: ["seeds"]
 snapshot-paths: ["snapshots"]
 
+vars:
+  # SINGLE-PULL RULE for Google Trends (docs/training_plan.md 4.5, 9.2). Trends rescales
+  # each request to its own peak, so a data_version takes the WHOLE history from one pull.
+  # This is that pull: the latest one that passed the data gate (scripts/trends_gate.py).
+  # 2026-10-05 is the first pull; the gate is still "pending" on G2 (one pull so far).
+  # Advance it deliberately, together with a new snapshot -- never implicitly.
+  trends_pull_id: '2026-10-05'
+
 clean-targets:
   - "target"
   - "dbt_packages"

@@ -41,16 +41,44 @@ OUT_DIR = Path("data/processed")
 PANEL_SQL = f"select * from `{PROJECT_ID}.marts.monthly_panel` order by obs_date"
 COVERAGE_SQL = f"select * from `{PROJECT_ID}.marts.series_coverage`"
 VERSION_SQL = f"select max(pulled_at) as data_version from `{PROJECT_ID}.raw.bcrp_observations`"
+# The ONE Trends pull the panel was built from (stg_trends enforces a single pull_id).
+TRENDS_PULL_SQL = f"select distinct pull_id from `{PROJECT_ID}.staging.stg_trends`"
+
+
+def compose_version(bcrp_version: str, trends_pull_ids: list[str]) -> str:
+    """`{bcrp}` or, once Google Trends is in the panel, `{bcrp}_gt{pull date}`.
+
+    WHY THE SUFFIX (protocol 1.7). The BCRP timestamp alone no longer identifies the
+    panel: a new Trends pull, or a different `trends_pull_id`, changes gt_yape_plin
+    without changing MAX(pulled_at). Same filename, different data -- and the 1.6
+    snapshot `panel_20261005T000000Z` is referenced by logged runs, which must never
+    be overwritten (training_plan.md 4.0 rule 3). Exactly one pull may feed the panel
+    (the single-pull rule); more than one is refused here as well as in dbt.
+    """
+    if not trends_pull_ids:
+        return bcrp_version
+    if len(trends_pull_ids) != 1:
+        raise RuntimeError(
+            f"stg_trends holds {len(trends_pull_ids)} pulls {sorted(trends_pull_ids)}; the "
+            "single-pull rule allows exactly one. Check var trends_pull_id and rebuild dbt.")
+    return f"{bcrp_version}_gt{trends_pull_ids[0].replace('-', '')}"
 
 
 def data_version(client) -> str:
-    """MAX(pulled_at), formatted so it can be a filename on Windows.
+    """MAX(pulled_at) of the BCRP pulls, plus the Trends pull; a valid Windows filename.
 
     Colons are illegal in Windows filenames, so the ISO timestamp is compacted
     to 20260829T180322Z rather than kept in full.
     """
+    from google.api_core.exceptions import NotFound  # lazy, as below
+
     ts = client.query(VERSION_SQL).to_dataframe()["data_version"].iloc[0]
-    return pd.Timestamp(ts).tz_convert("UTC").strftime("%Y%m%dT%H%M%SZ")
+    bcrp = pd.Timestamp(ts).tz_convert("UTC").strftime("%Y%m%dT%H%M%SZ")
+    try:
+        pulls = client.query(TRENDS_PULL_SQL).to_dataframe()["pull_id"].tolist()
+    except NotFound:                      # warehouse built before protocol 1.7: no Trends
+        pulls = []
+    return compose_version(bcrp, [str(p) for p in pulls])
 
 
 def build(client) -> tuple[str, pd.DataFrame, pd.DataFrame]:

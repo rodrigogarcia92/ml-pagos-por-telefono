@@ -58,10 +58,21 @@ models:
           # have observations. Catches the realistic failure after a config
           # edit: a mistyped BCRP code, which would otherwise appear as a panel
           # column that is silently NULL for all 200 months.
+          # Split by source (v1.7): Trends rows live in stg_trends, not here.
           - relationships:
+              name: relationships_stg_series_metadata_bcrp_have_observations
               arguments:
                 to: ref('stg_bcrp_observations')
                 field: series_code
+              config:
+                where: "category != 'search_interest'"
+          - relationships:
+              name: relationships_stg_series_metadata_trends_have_observations
+              arguments:
+                to: ref('stg_trends')
+                field: series_code
+              config:
+                where: "category = 'search_interest'"
       - name: col_name
         description: Becomes a column name in marts.monthly_panel.
         data_tests:
@@ -72,4 +83,36 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['target', 'macro', 'complementary', 'pagos_agregados']
+                values: ['target', 'macro', 'complementary', 'pagos_agregados', 'search_interest']
+
+  - name: stg_trends
+    description: >
+      Google Trends, ONE pull, ONE row per month: yape + plin in index points
+      (training_plan.md 4.5). The single-pull rule lives here -- the pull is
+      var('trends_pull_id') in dbt_project.yml (latest pull that passed the data gate).
+      Never mix months from two pulls: Trends rescales each request.
+    columns:
+      - name: series_code
+        data_tests:
+          - not_null
+      - name: obs_date
+        data_tests:
+          - not_null
+      - name: value
+        description: Consolidated index (yape + plin), 0-200. NULL if an entity is missing.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 200
+                inclusive: true
+      - name: pull_id
+        description: The one pull this model reads.
+        data_tests:
+          - not_null
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - series_code
+              - obs_date

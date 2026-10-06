@@ -305,3 +305,45 @@ def test_gt_yape_plin_is_registered_with_kappa_zero_and_log_diff_and_never_fetch
     assert config.COL_NAME_BY_CODE[load_trends.SERIES_CODE] == "gt_yape_plin"
     assert "gt_yape_plin" not in {s["col_name"] for s in config.BCRP_SERIES}
     assert len(config.BCRP_SERIES) == len(config.ALL_SERIES) - 1
+
+
+# --------------------------------------------------------------------------- #
+# T8 -- single-pull rule. dbt is NOT run here (offline suite): these pin the
+# artefacts that enforce it, so deleting one fails a test rather than a build
+# nobody is watching. The assertions themselves run in `dbt build`.
+# --------------------------------------------------------------------------- #
+DBT = Path("pagos_dbt")
+
+
+def test_t8_stg_trends_reads_one_declared_pull_and_the_panel_unions_it():
+    import yaml
+
+    sql = (DBT / "models/staging/stg_trends.sql").read_text(encoding="utf-8")
+    assert "var('trends_pull_id'" in sql and "where pull_id" in sql
+    assert "group by pulls.series_code, pulls.obs_date, pulls.pull_id" in sql
+    assert "row_number" not in sql.lower()           # no month-by-month latest-pull de-duplication
+
+    project = yaml.safe_load((DBT / "dbt_project.yml").read_text(encoding="utf-8"))
+    declared = project["vars"]["trends_pull_id"]
+    assert (trends.RAW_DIR / f"{declared}_yape_plin.csv").exists(), "var points at a pull not in the repo"
+
+    panel = (DBT / "models/marts/monthly_panel.sql").read_text(encoding="utf-8")
+    assert "ref('stg_trends')" in panel and "ref('stg_bcrp_observations')" in panel
+
+
+def test_t8_the_two_singular_tests_exist():
+    one = (DBT / "tests/assert_stg_trends_single_pull.sql").read_text(encoding="utf-8")
+    assert "count(distinct pull_id) != 1" in one
+    two = (DBT / "tests/assert_panel_gt_from_one_pull.sql").read_text(encoding="utf-8")
+    assert "ref('monthly_panel')" in two and "ref('stg_trends')" in two
+
+
+def test_snapshot_version_carries_the_single_trends_pull_and_refuses_two():
+    from src.model_training.snapshot import compose_version
+
+    assert compose_version("20261005T000000Z", []) == "20261005T000000Z"
+    v = compose_version("20261005T000000Z", ["2026-10-05"])
+    assert v == "20261005T000000Z_gt20261005"
+    assert v != "20261005T000000Z"        # a 1.6 snapshot of the same BCRP pull is never overwritten
+    with pytest.raises(RuntimeError, match="single-pull"):
+        compose_version("20261005T000000Z", ["2026-10-05", "2026-10-12"])

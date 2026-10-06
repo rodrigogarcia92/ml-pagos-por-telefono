@@ -37,7 +37,13 @@ with bounds as (
         max(obs.obs_date)   as last_obs,
         count(obs.value)    as n_values
 
-    from {{ ref('stg_bcrp_observations') }} as obs
+    from (
+
+        select series_code, obs_date, value from {{ ref('stg_bcrp_observations') }}
+        union all
+        select series_code, obs_date, value from {{ ref('stg_trends') }}
+
+    ) as obs
 
     inner join {{ ref('stg_series_metadata') }} as meta
         on meta.series_code = obs.series_code
@@ -73,6 +79,9 @@ select
     -- It is a cross-check on kappa, not a replacement for it: the panel's edge
     -- also depends on WHEN the ETL last ran, whereas kappa is about when BCRP
     -- publishes. Read a disagreement as a question, not an answer.
+    -- The edge is the freshest BCRP month, so a Trends series (published within days,
+    -- kappa = 0) can read NEGATIVE: gt_yape_plin is one month AHEAD of the BCRP panel.
+    -- That is correct and informational; the column is not asserted.
     date_diff(
         (select max(obs_date) from {{ ref('stg_bcrp_observations') }}),
         last_obs,

@@ -31,6 +31,29 @@ sources:
           - name: source_batch
             description: Filename in data/raw/bcrp/ that produced this row.
 
+      - name: trends_observations
+        description: >
+          Google Trends, one row per (pull, entity, month): Yape ("Aplicación") and
+          Plin ("Tema") from ONE request per pull, as exported, complete months only
+          (src/data_collection/load_trends.py). Append-only; every pull is kept.
+          Trends is relative (0-100, rescaled per request), so months from different
+          pulls are not comparable: stg_trends applies the single-pull rule.
+        columns:
+          - name: pull_id
+            description: The pull date (YYYY-MM-DD), the filename prefix in data/raw/google_trends/.
+          - name: pull_date
+            description: The same date as a DATE.
+          - name: series_code
+            description: Always GT_YAPE_PLIN (config.TRENDS_SERIES).
+          - name: entity
+            description: "'yape' or 'plin'."
+          - name: obs_date
+            description: First day of the observation month.
+          - name: value
+            description: Index points, 0-100 ("<1" read as 0.5 by the parser).
+          - name: source_batch
+            description: CSV filename that produced this row.
+
       - name: series_metadata
         description: >
           Human-readable labels for each series code. A projection of
@@ -45,4 +68,4 @@ sources:
               operations), v_ = valor/monto in soles. These become the column
               names of marts.monthly_panel.
           - name: category
-            description: "'target' | 'macro' | 'complementary'"
+            description: "'target' | 'macro' | 'complementary' | 'pagos_agregados' | 'search_interest'"

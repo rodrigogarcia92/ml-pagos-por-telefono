@@ -33,7 +33,15 @@ select
     max(if(meta.col_name = '{{ col }}', obs.value, null)) as {{ col }}
     {%- endfor %}
 
-from {{ ref('stg_bcrp_observations') }} as obs
+from (
+
+    -- BCRP: latest pull per (series, month). Trends: ONE pull, whole history (stg_trends).
+    -- Different de-duplication rules on purpose; see stg_trends.sql.
+    select series_code, obs_date, value from {{ ref('stg_bcrp_observations') }}
+    union all
+    select series_code, obs_date, value from {{ ref('stg_trends') }}
+
+) as obs
 
 inner join {{ ref('stg_series_metadata') }} as meta
     on meta.series_code = obs.series_code
