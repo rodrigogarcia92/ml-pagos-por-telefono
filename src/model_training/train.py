@@ -76,6 +76,11 @@ class RunConfig:
     # 1.6 only for the s0-s4 specs (sweep.py gives a spec with no key the legacy value);
     # everything new is 1.7. Part of the resume key.
     protocol_version: str = tracking.PROTOCOL_VERSION
+    # Stage C only: hyperparameters frozen BEFORE the holdout (configs/production/*.yaml, plan 11),
+    # {member: params} for an ensemble. When set, the holdout run uses them as they are and runs
+    # no Stage A at all; absent, Stage A re-runs on the CV rows (never the holdout) as before.
+    frozen_params: dict | None = None
+    frozen_source: str = ""             # label logged as param hp_source, e.g. "frozen:ab12cd34ef56"
 
 
 # What exists only from protocol 1.7 on (training_plan.md 3, 5.4, 7.4). A 1.6 run asking
@@ -402,7 +407,12 @@ def fit_config(cfg: RunConfig) -> FitResult:
     if n_cv <= splits.MIN_TRAIN[cfg.window]:
         raise ValueError(f"{cfg.window}: {n_cv} CV rows is not enough for min_train")
 
-    best_params, tuning_table = _tune(frame, cfg, n_cv)
+    if cfg.frozen_params is not None:
+        if cfg.stage != "holdout":
+            raise ValueError("frozen_params are a Stage C input; a CV run tunes its own (plan 7.3)")
+        best_params, tuning_table = cfg.frozen_params, pd.DataFrame()
+    else:
+        best_params, tuning_table = _tune(frame, cfg, n_cv)
 
     if cfg.stage == "holdout":
         eval_folds = splits.holdout_folds(n_rows, n_cv=n_cv, horizon=cfg.horizon)
@@ -461,6 +471,7 @@ def log_config(fit: FitResult) -> RunResult:
             "n_folds_nan_metric": sum(
                 any(np.isnan(v) for v in d.values()) for d in fit.per_fold),
             "holdout_months": fit.n_hold,   # the final N target months (h-independent)
+            **({"hp_source": cfg.frozen_source or "frozen"} if cfg.frozen_params is not None else {}),
             **({"member_encodings": ",".join(
                 f"{m}={e}" for m, e in registry.member_encodings(cfg.model_family).items())}
                if cfg.model_family in registry.ENSEMBLES else {}),

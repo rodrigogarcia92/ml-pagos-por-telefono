@@ -32,6 +32,11 @@ SPEC KEYS
                                               predate it and must keep producing 1.6
                                               runs -- so protocol 1.7 specs (s1b, s5)
                                               say "1.7" explicitly.
+  frozen                                      Stage C only: {model: path of a configs/production/*.yaml}.
+                                              The holdout run of that model uses the frozen
+                                              hyperparameters as they are (no Stage A); the config's
+                                              target, window, feature set and data_version must match
+                                              the run, or expand() raises.
   Naive models run once, with feature set "none".
 """
 
@@ -44,6 +49,7 @@ from pathlib import Path
 
 import yaml
 
+from src.forecasting import production
 from src.model_training import dataset, registry, tracking
 from src.model_training.snapshot import latest_snapshot
 from src.model_training.train import RunConfig, check_protocol, context_for, fit_config, log_config
@@ -90,6 +96,24 @@ def _feature_sets(spec: dict, model: str) -> list[str]:
     return spec.get("feature_sets_by_model", {}).get(model) or spec.get("feature_sets", ["none"])
 
 
+def _frozen(spec: dict, snapshot: str) -> dict[str, tuple[dict, str, dict]]:
+    """{model: (member params, source label, the frozen config)} for a Stage C spec."""
+    out = {}
+    for model, path in (spec.get("frozen") or {}).items():
+        if spec.get("stage", "cv") != "holdout":
+            raise ValueError("`frozen` is a Stage C key: it needs `stage: holdout`")
+        if model not in spec["models"]:
+            raise ValueError(f"frozen model {model!r} is not in the spec's models")
+        cfg = production.load(path)
+        want = tracking.data_version(snapshot)
+        if cfg["data_version"] != want:
+            raise ValueError(
+                f"{path} was frozen on data_version {cfg['data_version']}, but this sweep reads "
+                f"{want}. A holdout is evaluated on the snapshot the model was frozen on.")
+        out[model] = (production.member_params(cfg), f"frozen:{production.config_hash(path)}", cfg)
+    return out
+
+
 def expand(spec: dict, snapshot: str) -> list[RunConfig]:
     """Cartesian product of the spec, minus combinations that make no sense."""
     unknown = [m for m in spec["models"] if m not in registry.MODELS]
@@ -97,6 +121,7 @@ def expand(spec: dict, snapshot: str) -> list[RunConfig]:
         raise ValueError(f"Unknown model(s) {unknown}; known: {sorted(registry.MODELS)}")
 
     protocol = protocol_of(spec)
+    frozen = _frozen(spec, snapshot)
     out = []
     for target, horizon in _pairs(spec):
         for window, model in itertools.product(spec["windows"], spec["models"]):
@@ -107,7 +132,16 @@ def expand(spec: dict, snapshot: str) -> list[RunConfig]:
                     stage=spec.get("stage", "cv"), snapshot=snapshot,
                     tune=spec.get("tune", {}).get(model, {}),
                     protocol_version=protocol,
+                    frozen_params=frozen[model][0] if model in frozen else None,
+                    frozen_source=frozen[model][1] if model in frozen else "",
                 ))
+                if model in frozen:
+                    f = frozen[model][2]
+                    got = (target, window, fs)
+                    if got != (f["target_id"], f["window"], f["feature_set"]):
+                        raise ValueError(
+                            f"frozen {model} config is {(f['target_id'], f['window'], f['feature_set'])}"
+                            f", the spec asks for {got}")
                 check_protocol(out[-1])      # a 1.7-only target / model / set under a 1.6 spec raises
     return out
 
