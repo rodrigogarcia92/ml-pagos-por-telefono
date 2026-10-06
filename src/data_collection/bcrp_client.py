@@ -26,6 +26,7 @@ IMPORTANT — why we request ONE code per call:
 from __future__ import annotations
 
 import json
+import time
 from datetime import date
 from pathlib import Path
 
@@ -35,6 +36,63 @@ BASE_URL = "https://estadisticas.bcrp.gob.pe/estadisticas/series/api"
 
 # project_root/src/data_collection/bcrp_client.py -> project_root/data/raw/bcrp
 RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw" / "bcrp"
+
+# Retries are for TRANSIENT failures only: a dropped connection or a body that is not JSON (an
+# error page, a half-loaded response). 2 s, 4 s, 8 s, then give up and say what came back.
+# Nothing here tries to get past bot protection -- no header spoofing, no challenge solving
+# (training_plan.md O-13 forbids it); if the host serves a challenge page, retries will not help
+# and the error names it so a person can decide.
+BACKOFF_SECONDS = (2, 4, 8)
+BODY_HEAD_CHARS = 200
+_sleep = time.sleep          # indirection, so tests need not wait
+
+
+class BcrpError(RuntimeError):
+    """Base class for BCRP client failures that are not a bug in this code."""
+
+
+class BcrpNonJsonResponse(BcrpError):
+    """The API answered, but the body is not JSON -- typically an HTML bot-protection page.
+
+    BCRP has served valid JSON labelled `text/html`, so this is decided by trying to parse the
+    body, never by the Content-Type header.
+    """
+
+    def __init__(self, url: str, status: int, content_type: str | None, body_head: str):
+        self.url, self.status, self.content_type, self.body_head = url, status, content_type, body_head
+        super().__init__(
+            f"BCRP returned a non-JSON body for {url}: HTTP {status}, "
+            f"content-type {content_type!r}, body starts: {body_head!r}")
+
+
+class BcrpNetworkError(BcrpError):
+    """The request never produced a response (DNS, connection, timeout) after all retries."""
+
+
+def _get_json(url: str) -> dict:
+    """GET and parse, retrying transient failures. Raises BcrpError subclasses, nothing else
+    from the transport."""
+    last: Exception | None = None
+    for attempt in range(len(BACKOFF_SECONDS) + 1):
+        if attempt:
+            _sleep(BACKOFF_SECONDS[attempt - 1])
+        try:
+            response = requests.get(url, timeout=30)
+        except (requests.ConnectionError, requests.Timeout) as e:
+            last = BcrpNetworkError(f"BCRP request failed for {url}: {type(e).__name__}: {e}")
+            last.__cause__ = e
+            continue
+        try:
+            payload = response.json()
+        except ValueError:          # JSONDecodeError and requests' own subclass
+            last = BcrpNonJsonResponse(url, response.status_code,
+                                       response.headers.get("Content-Type"),
+                                       response.text[:BODY_HEAD_CHARS])
+            continue
+        response.raise_for_status()
+        return payload
+    assert last is not None
+    raise last
 
 
 def fetch_series(code: str, start: str, end: str, lang: str = "esp") -> dict:
@@ -49,9 +107,7 @@ def fetch_series(code: str, start: str, end: str, lang: str = "esp") -> dict:
     provider actually calls each code.
     """
     url = f"{BASE_URL}/{code}/json/{start}/{end}/{lang}"
-    response = requests.get(url, timeout=30)
-    response.raise_for_status()
-    payload = response.json()
+    payload = _get_json(url)
 
     series = payload.get("config", {}).get("series", [])
     if len(series) != 1:
