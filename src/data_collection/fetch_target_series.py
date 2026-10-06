@@ -15,6 +15,7 @@ happens in dbt's staging layer.
 
 import sys
 import time
+from datetime import date
 
 import requests
 
@@ -26,7 +27,9 @@ from src.data_collection.bcrp_client import (
 )
 from src.data_collection.config import BCRP_SERIES, START_BY_CATEGORY
 
-END = "2026-12"      # end of the requested window; the API returns what exists
+# End of the requested window; the API returns what exists. The current year's December, so a
+# fixed year cannot silently truncate every pull from January onward (monthly refresh).
+END = f"{date.today().year}-12"
 SLEEP_SECONDS = 0.3  # be polite to a free public API
 # A bot-protection page answers EVERY request the same way. After this many series in a row come
 # back as non-JSON, stop instead of spending minutes of backoff on the rest (training_plan.md O-13).
