@@ -74,3 +74,18 @@ FS1s_short:                             # 10 -- FS1_short + seas_transfer
 FS2s_short:                             # 14 -- FS2_short + seas_transfer
   - *fs2short
   - [seas_transfer]
+
+# --- Protocol 1.7: the Google Trends test (training_plan.md 4.5, 5.4). -----------
+# --- FS3_gt = FS3_activity + the three gt_* columns. FS3 stays unchanged as the
+# --- control, so the delta between the pair is attributable to the Trends block,
+# --- and FS3 is a strict subset of FS3_gt (asserted by test T10).
+# --- gt_yape_plin has kappa = 0, so gt_d0 -- the change in the latest complete month --
+# --- is admissible. Names follow the column convention (_d{k} = one-month change at
+# --- lag k; _ma{w} = mean monthly change over the last w admissible months), which is
+# --- why the owner's "gt_d1" is gt_d0 and "gt_d12" is gt_ma12 (year-on-year / 12).
+# --- 25 tree / 35 linear columns (22 + 3; cal_month adds 10 as dummies).
+# --- Runs only if the data gate passes (plan 9.2); dataset.build REFUSES to build
+# --- it where a log difference is undefined (index 0), it never repairs the series.
+FS3_gt:                                 # 25 -- FS3_activity + search interest
+  - *fs3
+  - [gt_d0, gt_ma3, gt_ma12]

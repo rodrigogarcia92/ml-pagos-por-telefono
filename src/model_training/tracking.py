@@ -52,6 +52,9 @@ _SNAPSHOT_RE = re.compile(r"panel_(?P<version>.+)\.parquet$")
 # vocabulary lives here and train.py imports this module (not the other way round).
 MIN_EVALUATION_FOLDS = 8
 
+# Horizons a run may carry: 1 and 3 (t2-t5) plus 5 and 6 (t10, t11; protocol 1.7).
+HORIZONS = (1, 3, 5, 6)
+
 
 def evaluation_status(n_folds: int) -> str:
     """'evaluation' or 'demonstration', from the number of outer folds."""
@@ -114,8 +117,8 @@ class RunContext:
     snapshot_path: str
 
     def __post_init__(self) -> None:
-        if self.horizon not in (1, 3):
-            raise ValueError(f"horizon must be 1 or 3, got {self.horizon}")
+        if self.horizon not in HORIZONS:
+            raise ValueError(f"horizon must be one of {HORIZONS}, got {self.horizon}")
         if self.stage not in ("cv", "holdout"):
             # Stage A (tuning) creates no runs at all (training_plan.md §8.0):
             # ~35k inner-CV fits at 50-200 ms of run-creation overhead each would

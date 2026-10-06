@@ -36,6 +36,12 @@ PREFIX = {
     "ingreso_formal": "ing",
     "tasa_referencia": "tasa",
     "dolarizacion_liquidez": "dol",
+    # Google Trends (training_plan.md 4.5, protocol 1.7). kappa = 0, so gt_d0 -- the
+    # change in the latest complete month -- is admissible. The names follow the
+    # convention below, NOT the owner's "gt_d1"/"gt_d12": here `_d{k}` is the one-month
+    # change at lag k, so gt_d1 would be last month's change and gt_d12 the change twelve
+    # months ago. The year-on-year idea is gt_ma12 (12-month mean change = yoy / 12).
+    "gt_yape_plin": "gt",
 }
 
 # Target definitions. A target is one panel column or the sum of several.
@@ -44,6 +50,12 @@ TARGETS = {
     "t3": {"cols": ["n_transf_intra_agg"], "horizon": 3},
     "t4": {"cols": ["n_transf_intra_yape", "n_transf_intra_plin"], "horizon": 1},
     "t5": {"cols": ["n_transf_intra_yape", "n_transf_intra_plin"], "horizon": 3},
+    # Protocol 1.7 (plan 3, Targets 10-11): one quarter ahead of the forecast date.
+    # With kappa = 2 the target month is t - kappa + h = t + 3 (h=5) / t + 4 (h=6),
+    # z5 = log n_{t+3} - log n_{t-2}; purge h - 1 = 4 / 5. IDs t6-t9 stay reserved for
+    # the deferred value/share targets.
+    "t10": {"cols": ["n_transf_intra_agg"], "horizon": 5},
+    "t11": {"cols": ["n_transf_intra_agg"], "horizon": 6},
     # t1 (baselines) reuses t2/t3's series -- the floor must be measured on the
     # same target it is a floor for.
     "t1": {"cols": ["n_transf_intra_agg"], "horizon": 1},
@@ -220,12 +232,23 @@ def build(
 
     def diff_of(src: str) -> pd.Series:
         if src not in _cache:
+            if src not in panel.columns:
+                raise KeyError(
+                    f"{src} is not in this snapshot. Google Trends needs a snapshot taken "
+                    "after load_trends + dbt build + snapshot (training_plan.md 9.2 step 3)."
+                    if src == "gt_yape_plin" else f"{src} is not in this snapshot."
+                )
             s = panel[src]
             if meta.loc[src, "transform"] == "log_diff" and (s <= 0).any():
+                hint = (
+                    " Trends printed a bare 0, not '<1' (which the plan reads as 0.5, 4.5): "
+                    "that is a data-gate finding (G1), and nothing here floors or smooths it."
+                    if src == "gt_yape_plin" else ""
+                )
                 raise ValueError(
                     f"{src} contains non-positive values, so log_diff is undefined. "
                     f"First offender: {s[s <= 0].index[0]:%Y-%m}. Fix the transform "
-                    "in config.py, or exclude the series."
+                    f"in config.py, or exclude the series.{hint}"
                 )
             _cache[src] = _diff(s, meta.loc[src, "transform"])
         return _cache[src]
