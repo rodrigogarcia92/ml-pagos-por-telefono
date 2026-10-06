@@ -227,7 +227,12 @@ def build(
     window: str,
     columns: list[str],
     encoding: str = "int",
+    keep_unlabelled: bool = False,
 ) -> Frame:
+    """The design matrix. `keep_unlabelled=True` is the opt-in used ONLY by
+    build_prediction_rows: it also keeps rows whose target has not been published yet
+    (y and y_level NaN). The default path -- everything training, tuning and evaluation
+    see -- is exactly what it has always been."""
     spec = TARGETS[target_id]
     y_level = panel[spec["cols"]].sum(axis=1, min_count=len(spec["cols"]))
     kappa_y = int(meta.loc[spec["cols"][0], "kappa"])
@@ -380,7 +385,12 @@ def build(
     keep = np.asarray(target_months >= pd.Timestamp(WINDOWS[window]))
     X, z, ctx = X.loc[keep], z.loc[keep], ctx.loc[keep]
 
-    valid = X.notna().all(axis=1) & z.notna() & ctx[["anchor", "y_level"]].notna().all(axis=1)
+    if keep_unlabelled:
+        # Prediction rows: every feature and the anchor must exist (the kappa guard above has
+        # already run); only the realised target may be missing.
+        valid = X.notna().all(axis=1) & ctx["anchor"].notna()
+    else:
+        valid = X.notna().all(axis=1) & z.notna() & ctx[["anchor", "y_level"]].notna().all(axis=1)
     X, z, ctx = X.loc[valid], z.loc[valid], ctx.loc[valid]
 
     # --- per-window column hygiene -------------------------------------------
@@ -397,4 +407,50 @@ def build(
         target_start=tgt.min() if len(tgt) else None,
         target_end=tgt.max() if len(tgt) else None,
         seas_transfer=transfer,
+    )
+
+
+def build_prediction_rows(
+    panel: pd.DataFrame,
+    meta: pd.DataFrame,
+    *,
+    target_id: str,
+    horizon: int,
+    window: str,
+    columns: list[str],
+    encoding: str = "int",
+    extend_months: int = 6,
+) -> Frame:
+    """The origins that can be forecast but cannot yet be scored: features complete under their
+    kappa, anchor published, target month not yet published.
+
+    The row index is the origin month, as everywhere in this module, and `y` / `ctx["y_level"]`
+    are NaN. Columns are exactly those of the ordinary `build` (so a model fitted on the
+    labelled frame can be applied as is), including any zero-variance column it dropped.
+
+    The panel is extended with empty future months first: its index may stop before the latest
+    admissible origin (the newest month of a fast series can sit AHEAD of the newest payments
+    month), and lags are positional. Empty months carry no data, so nothing is invented.
+
+    The training path is untouched -- `build` is called with its default flag for the labelled
+    frame, and the κ guard runs in both calls.
+    """
+    labelled = build(panel, meta, target_id=target_id, horizon=horizon, window=window,
+                     columns=columns, encoding=encoding)
+    full = pd.date_range(panel.index.min(), panel.index.max() + pd.DateOffset(months=extend_months),
+                         freq="MS")
+    ext = build(panel.reindex(full), meta, target_id=target_id, horizon=horizon, window=window,
+                columns=columns, encoding=encoding, keep_unlabelled=True)
+
+    pending = ext.y.isna() | ext.ctx["y_level"].isna()
+    missing = [c for c in labelled.X.columns if c not in ext.X.columns]
+    if missing:
+        raise RuntimeError(f"prediction rows lack the training columns {missing}")
+    if not labelled.X.index.isin(ext.X.index[~pending]).all():
+        raise RuntimeError("prediction build disagrees with the training build on labelled rows")
+    X = ext.X.loc[pending, list(labelled.X.columns)]
+    return Frame(
+        X=X, y=ext.y.loc[pending], ctx=ext.ctx.loc[pending], horizon=horizon, window=window,
+        feature_set="", encoding=encoding, dropped=labelled.dropped,
+        target_start=ext.target_start, target_end=ext.target_end, seas_transfer=ext.seas_transfer,
     )
