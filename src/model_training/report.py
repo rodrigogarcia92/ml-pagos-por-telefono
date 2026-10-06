@@ -41,13 +41,34 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import mlflow
 import pandas as pd
 
-from src.model_training import tracking  # noqa: F401 -- loads .env, sets tracking URI
+import mlflow
+from src.model_training import metrics, tracking  # noqa: F401 -- tracking loads .env, sets the URI
 
 COLS = ["model_family", "feature_set", "window", "n_folds", "evaluation_status",
         "mase_mean", "mase_std", "skill_h_mean", "mae_mean", "mape_mean"]
+
+
+def pooled_rmse_from_children(parents: pd.DataFrame, experiment_id: str) -> pd.Series:
+    """rmse_pooled for each parent run: from the metric the run logged (new runs), otherwise
+    derived from its child runs' per-fold `mae` -- valid for every run already in MLflow.
+
+    The logged per-fold `rmse` is NOT used: each fold has one test point, so it equals `mae`
+    and its mean is a MAE (plan 11, 2026-10-06).
+    """
+    client = mlflow.MlflowClient()
+    logged = parents.get("metrics.rmse_pooled")
+    out = {}
+    for idx, rid in parents["run_id"].items():
+        if logged is not None and pd.notna(logged.get(idx)):
+            out[idx] = float(logged[idx])
+            continue
+        kids = client.search_runs([experiment_id], f"tags.mlflow.parentRunId = '{rid}'",
+                                  max_results=1000)
+        out[idx] = metrics.rmse_pooled([k.data.metrics["mae"] for k in kids
+                                        if "mae" in k.data.metrics])
+    return pd.Series(out, dtype=float)
 
 
 def fetch(target: str, horizon: int, stage: str = "cv",
@@ -82,6 +103,10 @@ def fetch(target: str, horizon: int, stage: str = "cv",
         "mase_std": runs["metrics.mase_std"],
         "skill_h_mean": runs["metrics.skill_h_mean"],
         "mae_mean": runs["metrics.mae_mean"],
+        # The ORIGINAL logged column, kept under an honest name: with one test point per fold it
+        # is identical to mae_mean. The real RMSE is rmse_pooled.
+        "rmse_mean_is_mae": runs["metrics.rmse_mean"],
+        "rmse_pooled": pooled_rmse_from_children(runs, runs["experiment_id"].iloc[0]),
         "mape_mean": runs["metrics.mape_mean"],
     })
     return out.sort_values(["window", "mase_mean"]).reset_index(drop=True)
@@ -203,7 +228,7 @@ def main() -> None:
 
     show = df[["model_family", "feature_set", "window", "n_folds", "evaluation_status",
                "mase_mean", "mase_std", "skill_h_mean", "skill_rw", "skill_drift",
-               "mape_mean"]]
+               "mape_mean", "rmse_pooled"]]
     with pd.option_context("display.float_format", lambda v: f"{v:8.3f}"):
         print(f"\n{a.target} h={a.horizon}  stage={a.stage}  "
               f"(ranked by MASE, lower is better)\n")
@@ -214,6 +239,9 @@ def main() -> None:
     print("  skill_h is measured against the SEASONAL naive; skill_rw against the")
     print("  RANDOM WALK; skill_drift against the DRIFT baseline -- the hurdle. A model")
     print("  with skill_drift <= 0 has not beaten persistence plus trend.")
+    print("  rmse_pooled = sqrt(mean(fold MAE^2)): the real RMSE over all test points. The logged")
+    print("  rmse_mean equals mae_mean (one test point per fold), so it is not shown; the CSV keeps it")
+    print("  as rmse_mean_is_mae.")
     print("  evaluation_status = 'demonstration' means fewer than 8 outer folds: the number")
     print("  shows the pipeline runs, it does not rank anything (training_plan.md 6.4 rule 4).\n")
 

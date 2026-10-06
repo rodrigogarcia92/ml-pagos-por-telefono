@@ -518,6 +518,10 @@ def log_config(fit: FitResult) -> RunResult:
             # The sd matters as much as the mean: a model that wins on average
             # by being wildly variable is not a better model.
             agg[f"{key}_std"] = float(np.nanstd(vals))
+        # Each fold has ONE test point, so a fold's `rmse` equals its `mae` and `rmse_mean` above
+        # is really a MAE. The pooled root-mean-square error over all test points is
+        # sqrt(mean(fold_mae^2)) (plan 11, 2026-10-06). Additive; report.py derives it for old runs.
+        agg["rmse_pooled"] = metrics.rmse_pooled([d["mae"] for d in fit.per_fold])
         mlflow.log_metrics(agg)
 
         # ---- artifacts, parent only (8.5) --------------------------------- #

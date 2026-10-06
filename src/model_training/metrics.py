@@ -47,6 +47,17 @@ def mae(y: np.ndarray, yhat: np.ndarray) -> float:
     return float(np.mean(np.abs(np.asarray(y, float) - np.asarray(yhat, float))))
 
 
+def rmse_pooled(fold_mae) -> float:
+    """Pooled RMSE over folds that each hold ONE test point: sqrt(mean(fold_mae ** 2)).
+
+    With one point per fold a fold's `rmse` is its `mae`, so averaging the logged `rmse` gives a
+    MAE. Squaring the per-fold absolute errors first gives the real thing. NaN folds are skipped,
+    as in log_config's aggregates.
+    """
+    e = np.asarray(list(fold_mae), dtype=float)
+    return float(np.sqrt(np.nanmean(e ** 2))) if np.isfinite(e).any() else float("nan")
+
+
 def rmse(y: np.ndarray, yhat: np.ndarray) -> float:
     return float(np.sqrt(np.mean((np.asarray(y, float) - np.asarray(yhat, float)) ** 2)))
 
