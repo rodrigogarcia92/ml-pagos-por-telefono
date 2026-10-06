@@ -222,7 +222,7 @@ Sweeps, in the order the protocol requires:
 |---|---|---|---|
 | `s1_baselines` | 20 parents, five naive variants. **Re-run under protocol 1.6** on a refreshed snapshot (§12); 1.5 runs are ignored by the resume key and by `report.py` | ~4 min (GCS artifact uploads dominate) | The floor is in MLflow. **The hurdle is `naive_drift`** (training plan v1.5), not `naive_calendar` |
 | `s2_proxy_grid` | 66 parents, Stage A + B | est. 30–45 min at `--jobs 6` (measured: XGBoost ≈ 4.5 min, RF ≈ 5 min, SARIMAX FS2 ≈ 7 min per config) | Check the §5 pre-registered prediction against what happened. **Decide O-10 first** |
-| *holdout* | Stage C, selected config | seconds | **Once. Ever.** |
+| *holdout* | Stage C, selected config (`s6_holdout`: `ens3` vs `naive_drift`, §13.5) | ~1 min | **Once. Ever.** `python scripts/run_holdout.py --confirm` |
 | `s3_w2021` | 12 parents, sensitivity | ~20 min | |
 | `s4_wallet` | **30 parents** (plan §7.2 reconciles the old "18"): five naive variants + Ridge + XGBoost on `FS0/1/2_short` and the transfer sets `FS1s/FS2s_short`, reduced grids | ~10 min | Does **not** depend on `s2` or on a winner. Read `evaluation_status` before quoting anything |
 
@@ -311,6 +311,7 @@ running in the cloud, nothing accruing cost.
 | Server | `.venv` | `.\scripts\start_mlflow.ps1` |
 | Tests | `.venv` | `pytest -q` |
 | Sweep | `.venv` | `python -m src.model_training.sweep --config configs/sweeps/<name>.yaml` |
+| Forecast / monitor | `.venv` | `python scripts/monthly_refresh.py --dry-run --skip-etl` (§13) |
 | Back up | — | `Copy-Item mlflow/mlflow.db "mlflow/mlflow_$(Get-Date -Format yyyyMMdd_HHmm).db"` |
 
 ## Things that have actually gone wrong
@@ -324,7 +325,7 @@ running in the cloud, nothing accruing cost.
 | Server won't start, database locked | Orphaned process from a previous session | `Get-Process mlflow*, python \| Stop-Process` |
 | dbt column missing after adding a series | Loader not re-run, so `raw.series_metadata` is stale | §2.2 then §3 |
 | ETL: `UnicodeEncodeError: 'charmap' codec can't encode '✗'` | Windows console is CP1252 and the failure marker is not | `$env:PYTHONUTF8=1` (set in `.env.example`). This only masks the real failure — read the line above it |
-| ETL: `JSONDecodeError: Expecting value: line 1 column 1` on **every** series | BCRP's Imperva bot protection answers with an HTML/JavaScript challenge (HTTP 200, `text/html`) instead of JSON. First seen 2026-10-04. `curl -i` on any series URL shows `Content-Type: text/html` | Retry later. Otherwise download the series by hand from the BCRP site in a browser into `data/raw/bcrp/`. **Do not** spoof headers or script a browser to defeat the challenge (training plan O-13) |
+| ETL: `BcrpNonJsonResponse` / `BCRP returned a non-JSON body` (before 2026-10-06: `JSONDecodeError: Expecting value: line 1 column 1`) on **every** series | BCRP's Imperva bot protection answers with an HTML/JavaScript challenge (HTTP 200, `text/html`) instead of JSON. First seen 2026-10-04. `curl -i` on any series URL shows `Content-Type: text/html`. The client now retries 3 times (2, 4, 8 s), then names the status, content type and the first 200 characters of the body; the fetch stops after two such series in a row. In the monthly refresh it surfaces as `BcrpBlockedError` | Retry later. Otherwise download the series by hand from the BCRP site in a browser into `data/raw/bcrp/`. **Do not** spoof headers or script a browser to defeat the challenge (training plan O-13) |
 
 ---
 
@@ -381,3 +382,186 @@ Notes.
 - After the snapshot exists, fill the TODO fold-count tables in plan §2 / §6.2 from `Frame` (`len(X)`, `target_start`, `target_end`), not by hand.
 - If a wallet config **fails** in `s4` rather than finishing, read the `FAILED:` line before re-running: `fit_config` refuses (never skips)
   a test origin without a seasonal reference, and refuses `seas_transfer` on any window that would leak it.
+
+---
+
+## 13. Monthly refresh and holdout
+
+Two things live here: the **monthly refresh** (new BCRP month -> forecast with an error band -> drift check, run by GitHub
+Actions or locally) and the **one-time holdout**. Neither needs anything in §1-§12 to change.
+
+What exists (all offline-testable, none of it needs the MLflow server except the holdout):
+
+| What | Command | Notes |
+|---|---|---|
+| Freeze the model | `python scripts/freeze_production.py` | Reads the protocol-1.7 `ens3` run from `mlflow/mlflow.db` read-only; writes `configs/production/t3_ens3.yaml` (hyperparameters + CV error band). Already done on snapshot `20261005T000000Z`; re-run only to reproduce |
+| Forecast | `python -m src.forecasting.predict --snapshot data/processed/panel_<version>.parquet` | Fits the frozen members on all labelled rows, forecasts the latest admissible origin. `--no-write` prints only |
+| Drift monitor | `python -m src.forecasting.monitor --snapshot ...` | Writes `forecasts/monitor.json`; exit 0 ok / 0 warning / 2 alert |
+| Monthly refresh | `python scripts/monthly_refresh.py [--dry-run] [--skip-etl] [--from-stage X]` | fetch, load, dbt, snapshot, predict, monitor. Exit 0 done, 2 done + drift alert, 1 a stage failed. Writes `forecasts/last_refresh.json` |
+| Holdout | `python scripts/run_holdout.py [--confirm]` | §13.5. **Once, ever** |
+
+### 13.1 One-time Google Cloud setup (Workload Identity Federation, no JSON key)
+
+GitHub Actions proves who it is with a short-lived OIDC token; Google trusts it only for repository
+`rodrigogarcia92/ml-pagos-por-telefono` and lets it impersonate one service account with the minimum roles. Run once, in PowerShell,
+after `gcloud auth login`:
+
+```powershell
+$PROJECT_ID = "pagos-telefono-26"
+$REPO = "rodrigogarcia92/ml-pagos-por-telefono"          # owner/name, case-sensitive
+$SA = "forecast-refresh@pagos-telefono-26.iam.gserviceaccount.com"
+
+# The number (not the id) is what the provider path uses. Look it up:
+$PROJECT_NUMBER = gcloud projects describe $PROJECT_ID --format="value(projectNumber)"
+$PROJECT_NUMBER                                          # e.g. 123456789012 -- the <PROJECT_NUMBER> below
+
+gcloud services enable iamcredentials.googleapis.com sts.googleapis.com --project $PROJECT_ID
+
+# 1. Workload Identity pool + GitHub OIDC provider, restricted to the one repository
+gcloud iam workload-identity-pools create github-pool `
+  --project=$PROJECT_ID --location=global --display-name="GitHub Actions"
+
+gcloud iam workload-identity-pools providers create-oidc github-provider `
+  --project=$PROJECT_ID --location=global --workload-identity-pool=github-pool `
+  --display-name="GitHub OIDC" `
+  --issuer-uri="https://token.actions.githubusercontent.com" `
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" `
+  --attribute-condition="assertion.repository == '$REPO'"
+
+# 2. The service account the workflow impersonates
+gcloud iam service-accounts create forecast-refresh `
+  --project=$PROJECT_ID --display-name="Monthly forecast refresh"
+
+# 3. Minimum roles: BigQuery Data Editor on the three datasets only (not the project),
+#    BigQuery Job User on the project (needed to run any query or load job)
+foreach ($ds in "raw", "staging", "marts") {
+  bq add-iam-policy-binding --member="serviceAccount:$SA" --role="roles/bigquery.dataEditor" "${PROJECT_ID}:$ds"
+}
+gcloud projects add-iam-policy-binding $PROJECT_ID `
+  --member="serviceAccount:$SA" --role="roles/bigquery.jobUser"
+
+# 4. Let identities from THAT repository (and no other) act as the service account
+gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT_ID `
+  --role="roles/iam.workloadIdentityUser" `
+  --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/$REPO"
+
+# 5. The provider's full resource name -- this is the value of the GCP_WIF_PROVIDER secret
+gcloud iam workload-identity-pools providers describe github-provider `
+  --project=$PROJECT_ID --location=global --workload-identity-pool=github-pool --format="value(name)"
+# -> projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+```
+
+Check it (nothing here prints a secret):
+
+```powershell
+gcloud iam service-accounts get-iam-policy $SA --project=$PROJECT_ID
+bq get-iam-policy "${PROJECT_ID}:marts"
+```
+
+> **Scope, stated plainly.** `roles/bigquery.dataEditor` on `raw`, `staging` and `marts` can create, change and delete tables in those
+> datasets, which is what the loader and `dbt build` do. It cannot touch other datasets, other projects, the MLflow bucket, or IAM.
+> The service account has **no key**; deleting the provider (or the `workloadIdentityUser` binding) revokes access at once.
+> If `google-cloud-bigquery-storage` is ever added to `requirements.txt`, `.to_dataframe()` will also need `roles/bigquery.readSessionUser`.
+
+### 13.2 GitHub: secrets and one repository setting
+
+Repository -> Settings -> Secrets and variables -> Actions -> **New repository secret** (or the CLI, from the repo folder):
+
+| Secret | Value |
+|---|---|
+| `GCP_WIF_PROVIDER` | `projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github-pool/providers/github-provider` (step 5 above) |
+| `GCP_SERVICE_ACCOUNT` | `forecast-refresh@pagos-telefono-26.iam.gserviceaccount.com` |
+
+```powershell
+gh secret set GCP_WIF_PROVIDER --body "projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+gh secret set GCP_SERVICE_ACCOUNT --body $SA
+```
+
+Neither is a credential by itself (they are names; the trust is the repository condition above), but there is nothing to gain from printing them.
+
+The workflow opens a pull request with the default token, which GitHub forbids until you allow it: Settings -> Actions -> General ->
+Workflow permissions -> **Read and write permissions** and **Allow GitHub Actions to create and approve pull requests**. Or:
+
+```powershell
+gh api -X PUT repos/$REPO/actions/permissions/workflow -f default_workflow_permissions=write -F can_approve_pull_request_reviews=true
+```
+
+### 13.3 Run the workflow, then switch on the schedule
+
+Manually, the first time (Actions tab -> **Monthly refresh** -> *Run workflow*, or):
+
+```powershell
+gh workflow run monthly-refresh.yml                  # the whole chain
+gh workflow run monthly-refresh.yml -f skip_etl=true # no fetch/load/dbt: new snapshot from the warehouse as it is, then forecast
+gh run watch
+```
+
+What you should see, by outcome: a new BCRP month -> a pull request **`forecast: <target month>`** (raw JSON, `forecasts/`, `monitor.json`; the
+body has the forecast, the 80%/90% band and the monitor status); no new month -> no PR, green job; monitor `alert` -> an issue labelled
+`drift-alert`; any stage fails -> an issue labelled `refresh-failed` with the stage, the command and the last 20 lines, and a red job.
+Merge the PR to publish the month.
+
+If the first run fails at `fetch` with `BcrpBlockedError`, BCRP is serving a bot-protection page to GitHub's addresses (plan O-13). Do not
+try to get around it: use §13.4.
+
+**Enable the schedule only after one successful manual run.** In `.github/workflows/monthly-refresh.yml`, uncomment the three lines under
+`# schedule:` (10th, 20th and 28th at 13:50 UTC = 08:50 Lima), commit and push to `main`. Scheduled workflows run only from the default branch,
+three attempts a month are idempotent (a run that finds no new published month opens nothing), and GitHub pauses scheduled workflows after 60 days
+without repository activity. Until the first successful real run, the README keeps saying the refresh is "rolling out".
+
+### 13.4 Fallback: run it on this machine (Windows Task Scheduler)
+
+For when BCRP blocks GitHub's IPs, or to keep the whole thing local. The task runs the same script with the project's `.venv`; `dbt` is found in
+`.venv-dbt` automatically (or set `DBT_BIN`). Prerequisites: `gcloud auth application-default login` still valid (§1) and `.env` present.
+From the project root:
+
+```powershell
+$root = (Get-Location).Path
+$py = Join-Path $root ".venv\Scripts\python.exe"
+$inner = "Set-Location -LiteralPath '$root'; & '$py' scripts\monthly_refresh.py *>> forecasts\refresh_task.log"
+$tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"$inner`""
+
+schtasks /Create /TN "pagos-telefono-monthly-refresh" /SC MONTHLY /D 10,20,28 /ST 09:00 /F /TR $tr
+schtasks /Query  /TN "pagos-telefono-monthly-refresh" /V /FO LIST      # check it
+schtasks /Run    /TN "pagos-telefono-monthly-refresh"                   # try it now
+schtasks /Delete /TN "pagos-telefono-monthly-refresh" /F                # remove it
+```
+
+The machine must be on, and the user logged in, at that time. The task does not commit anything; after a run that made a forecast (look at
+`forecasts/last_refresh.json`: `"outcome": "forecast"`), publish it yourself:
+
+```powershell
+git checkout -b forecast/<target-month>
+git add data/raw/bcrp forecasts
+git commit -m "forecast: <target-month>"
+git push -u origin forecast/<target-month>
+gh pr create --title "forecast: <target-month>" --fill
+```
+
+A single local run, by hand: `python scripts/monthly_refresh.py --dry-run` (the plan), then `python scripts/monthly_refresh.py`.
+`--skip-etl` forecasts from the newest snapshot already in `data/processed/`; `--from-stage dbt` resumes after a failure.
+Exit code 2 means "done, but the monitor says alert".
+
+### 13.5 The holdout (once, ever)
+
+`docs/training_plan.md` §11 holds the freeze entry **`PRODUCTION-FREEZE t3_ens3 v1`** with the rule written *before* the holdout is run: ens3 FS3 against
+`naive_drift` on the final 12 target months (2025-08 ... 2026-07 on snapshot `20261005T000000Z`); MASE, MAPE and the paired per-month difference
++/- SE; published whatever it is; nothing re-tuned, re-selected or re-run afterwards. The command refuses unless that marker is in the plan, you
+pass `--confirm`, and MLflow has no finished holdout run for the two parents on this `data_version`.
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+.\scripts\start_mlflow.ps1                      # terminal one (§5); then a second terminal for the rest
+Copy-Item mlflow/mlflow.db "mlflow/mlflow_$(Get-Date -Format yyyyMMdd_HHmm).db"      # §9, before
+pytest -q                                       # green, or stop
+python -m src.model_training.sweep --config configs/sweeps/s6_holdout.yaml --dry-run # must show 2 runs
+python scripts/run_holdout.py                   # preview: plan + the three guards, exit 0
+python scripts/run_holdout.py --confirm         # THE run: ~1 minute, 2 parents
+```
+
+It prints the comparison table and two blocks of text: one row for §11 and one paragraph for the README. Paste both **as printed**, commit, and
+stop. If ens3 does not beat `naive_drift`, the README says so and `naive_drift` becomes the production fallback; that is the rule, not a judgement call.
+Back up `mlflow.db` again afterwards (§9). A holdout run that *fails* is not recorded, so the guards allow a re-run; one that *finishes* is final.
+
+The production forecast refits the frozen members on **all** labelled rows, including the holdout months. That is a production fit (it scores
+nothing), and it is also why the holdout can be evaluated only once and before anyone treats the 2025-08 ... 2026-07 errors as a result.
