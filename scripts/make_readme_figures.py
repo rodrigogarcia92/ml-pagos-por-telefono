@@ -37,10 +37,11 @@ import pandas as pd  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.model_training import dataset, registry, splits, train  # noqa: E402
+from src.forecasting import ensemble  # noqa: E402
+from src.model_training import dataset, train  # noqa: E402
 
 TARGET, HORIZON, WINDOW, FEATURE_SET = "t3", 3, "w2019", "FS3_activity"
-MEMBERS = ("svr_rbf", "rf", "xgboost")
+MEMBERS = ensemble.MEMBERS
 PERM_DRAWS = 40
 SEED = 0
 
@@ -66,18 +67,6 @@ BASELINE = ("naive_drift", "none")
 # --------------------------------------------------------------------------- #
 # MLflow (read-only, straight from the SQLite backend)
 # --------------------------------------------------------------------------- #
-def _cast(v: str):
-    if v == "None":
-        return None
-    if v in ("scale", "auto"):
-        return v
-    try:
-        f = float(v)
-        return int(f) if f.is_integer() and "." not in v else f
-    except ValueError:
-        return v
-
-
 def _parents(con: sqlite3.Connection, data_version: str) -> pd.DataFrame:
     keys = ("model_family", "feature_set", "target_id", "window", "stage", "data_version", "protocol_version")
     t = pd.read_sql(
@@ -96,16 +85,10 @@ def member_params(con: sqlite3.Connection, parents: pd.DataFrame) -> dict[str, d
     if ens.empty:
         raise SystemExit("No finished ens3 / FS3 run for t3 w2019 on this data_version in MLflow.")
     rows = con.execute("select key, value from params where run_uuid = ?", (ens.index[0],)).fetchall()
-    out: dict[str, dict] = {m: {} for m in MEMBERS}
-    for k, v in rows:
-        if k.startswith("member_") and "__" in k:
-            fam, p = k.removeprefix("member_").split("__", 1)
-            if fam in out:
-                out[fam][p] = _cast(v)
-    missing = [m for m, p in out.items() if not p]
-    if missing:
-        raise SystemExit(f"ens3 run has no logged hyperparameters for {missing}.")
-    return out
+    try:
+        return ensemble.parse_member_params(rows)
+    except ValueError as e:
+        raise SystemExit(f"ens3 run: {e}.") from e
 
 
 def fold_mase(con: sqlite3.Connection, parents: pd.DataFrame) -> pd.DataFrame:
@@ -127,13 +110,9 @@ def fold_mase(con: sqlite3.Connection, parents: pd.DataFrame) -> pd.DataFrame:
 # Re-fit the ensemble on the sweep's folds
 # --------------------------------------------------------------------------- #
 def build_frames(panel, meta):
-    fs = train.load_feature_sets()[FEATURE_SET]
-    return {
-        fam: dataset.build(panel, meta, target_id=TARGET, horizon=HORIZON, window=WINDOW,
-                           columns=registry.model_columns(fam, fs),
-                           encoding=registry.default_encoding(fam))
-        for fam in MEMBERS
-    }
+    return ensemble.member_frames(
+        panel, meta, target_id=TARGET, horizon=HORIZON, window=WINDOW,
+        columns=train.load_feature_sets()[FEATURE_SET])
 
 
 def _block(col: str) -> str | None:
@@ -145,13 +124,9 @@ def _block(col: str) -> str | None:
             "pbi": "economic activity (GDP index)"}.get(col.split("_")[0], col)
 
 
-def refit(frames: dict, params: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+def refit(frames: dict, params: dict, kappa: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Fold-by-fold forecasts (levels) and grouped permutation importance of the ensemble."""
     rng = np.random.default_rng(SEED)
-    ref = frames["rf"]
-    n_cv = len(ref.X) - train.HOLDOUT_MONTHS[WINDOW]
-    folds = splits.make_folds(n_cv, window=WINDOW, horizon=HORIZON)
-    kappa_shift = pd.DateOffset(months=HORIZON - 2)   # target month = origin + (h - kappa), kappa = 2
 
     blocks: dict[str, dict[str, list[int]]] = {}
     for fam, fr in frames.items():
@@ -160,36 +135,23 @@ def refit(frames: dict, params: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
             if b:
                 blocks.setdefault(b, {}).setdefault(fam, []).append(j)
 
+    folds = ensemble.cv_folds(frames, window=WINDOW, horizon=HORIZON)
     rows, extra = [], {b: [] for b in blocks}
-    for f in folds:
-        tr, te_idx = f.train, f.test
-        te = te_idx[0]
-        anchor, actual = ref.ctx["anchor"].iloc[te], ref.ctx["y_level"].iloc[te]
-        mats, models, z = {}, {}, {}
-        for fam, fr in frames.items():
-            Xa = fr.X.to_numpy()
-            Xtr, Xte, _ = train._prepare(Xa[tr], Xa[te_idx], Xa[tr[-1] + 1: te])
-            mdl = registry.build(fam, params[fam], horizon=HORIZON)
-            mdl.fit(Xtr, fr.y.to_numpy()[tr], None)
-            mats[fam], models[fam], z[fam] = (Xtr, Xte), mdl, mdl.predict(Xte, None)[0]
-        z_ens = float(np.mean(list(z.values())))
-        # naive_drift: average h-step log growth over the training rows (registry.NaiveDrift)
-        d = np.log(ref.ctx["y_level"].to_numpy()[tr]) - np.log(ref.ctx["anchor"].to_numpy()[tr])
-        rows.append({"target": ref.X.index[te] + kappa_shift, "actual": actual,
-                     "ensemble": anchor * np.exp(z_ens),
-                     "trend": anchor * np.exp(np.nanmean(d)),
-                     **{fam: anchor * np.exp(v) for fam, v in z.items()}})
+    for ff in ensemble.iter_fold_fits(frames, params, folds, horizon=HORIZON, kappa=kappa):
+        rows.append({"target": ff.target, "actual": ff.actual,
+                     "ensemble": ff.anchor * np.exp(ff.z_ens), "trend": ff.trend,
+                     **{fam: ff.anchor * np.exp(v) for fam, v in ff.z.items()}})
 
-        e0 = abs(anchor * np.exp(z_ens) - actual)
+        e0 = abs(ff.anchor * np.exp(ff.z_ens) - ff.actual)
         for b, cols in blocks.items():
-            draws = rng.integers(0, len(tr), PERM_DRAWS)
+            draws = rng.integers(0, len(ff.fold.train), PERM_DRAWS)
             preds = []
-            for fam, (Xtr, Xte) in mats.items():
+            for fam, (Xtr, Xte) in ff.mats.items():
                 Xp = np.repeat(Xte, PERM_DRAWS, axis=0)
                 if fam in cols:
                     Xp[:, cols[fam]] = Xtr[draws][:, cols[fam]]
-                preds.append(models[fam].predict(Xp, None))
-            ep = np.abs(anchor * np.exp(np.mean(preds, axis=0)) - actual)
+                preds.append(ff.models[fam].predict(Xp, None))
+            ep = np.abs(ff.anchor * np.exp(np.mean(preds, axis=0)) - ff.actual)
             extra[b].append(ep.mean() - e0)
 
     fc = pd.DataFrame(rows).set_index("target")
@@ -298,7 +260,7 @@ def main() -> None:
 
     panel, meta = dataset.load_snapshot(snap)
     print("re-fitting the ensemble on the sweep's folds (about 1-3 minutes)...")
-    fc, imp = refit(build_frames(panel, meta), params)
+    fc, imp = refit(build_frames(panel, meta), params, ensemble.kappa_of(meta, TARGET))
 
     _style()
     fig_forecasts(fc, out / "fig1_forecasts.png")

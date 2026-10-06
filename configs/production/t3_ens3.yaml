@@ -1,0 +1,77 @@
+# Frozen production model: ens3 on FS3_activity, t3 (h=3), w2019.
+# Written by scripts/freeze_production.py -- do not edit by hand; regenerate and re-record.
+# Hyperparameters are READ from the MLflow run below (Stage A on the CV period, protocol 1.7),
+# the error band is computed on CV folds only. Selection record and the pre-registered holdout
+# rule: docs/training_plan.md section 11, marker "PRODUCTION-FREEZE t3_ens3 v1".
+target_id: t3
+horizon: 3
+kappa: 2
+window: w2019
+feature_set: FS3_activity
+columns:
+- cal_days
+- cal_weekend_days
+- cal_holidays
+- cal_month
+- d_covid_collapse
+- d_covid_rebound
+- y_d2
+- y_d3
+- y_d12
+- y_ma3
+- y_ma12
+- circ_d1
+- circ_d2
+- circ_d3
+- circ_d12
+- circ_ma3
+- circ_ma12
+- pbi_d2
+- pbi_d3
+- pbi_d12
+- pbi_ma3
+- pbi_ma12
+model_family: ens3
+members:
+  svr_rbf:
+    encoding: onehot
+    params:
+      C: 0.1
+      gamma: scale
+      epsilon: 0.01
+  rf:
+    encoding: int
+    params:
+      n_estimators: 300
+      max_depth: null
+      min_samples_leaf: 1
+      max_features: 0.6
+  xgboost:
+    encoding: int
+    params:
+      max_depth: 4
+      learning_rate: 0.05
+      n_estimators: 600
+      subsample: 0.7
+      colsample_bytree: 0.8
+      min_child_weight: 1
+      reg_lambda: 10
+mlflow_run_id: 2e96c211d1fa4849a18ec3da0f61949b
+data_version: 20261005T000000Z
+protocol_version: '1.7'
+selected_on: cv
+selection_record: docs/training_plan.md section 11, marker 'PRODUCTION-FREEZE t3_ens3
+  v1'
+cv_mase_mean: 0.26495101891101097
+error_band:
+  basis: empirical quantiles of log(actual / forecast) over the CV backtest folds
+    only; the final 12 target months are excluded
+  p05: -0.04745960870434013
+  p10: -0.03761276931908746
+  p50: 0.009187261403919698
+  p90: 0.09835732089068394
+  p95: 0.10838407324269425
+  n_folds: 41
+  cv_mape_pct: 4.389352452675822
+  first_target: 2022-03
+  last_target: 2025-07
