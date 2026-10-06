@@ -146,7 +146,31 @@ PAGOS_AGREGADOS_SERIES = [
     {"code": "PN42171EM", "col_name": "v_transf_intra_agg",   "description": "Bajo valor — Transferencias Intrabancarias (total sistema) — Monto de operaciones (millones S/)", "category": "pagos_agregados", "frequency": "mensual", "kappa": KAPPA_PAYMENTS, "transform": "log_diff"},
 ]
 
-ALL_SERIES = TARGET_SERIES + MACRO_SERIES + CCE_SERIES + PAGOS_AGREGADOS_SERIES
+# --------------------------------------------------------------------------- #
+# Search interest -- Google Trends (training_plan.md 4.5, protocol 1.7).
+#
+# NOT a BCRP series: `source` says so, and fetch_target_series.py iterates
+# BCRP_SERIES, so it never asks the BCRP API for this code. It lives in this
+# registry anyway because the registry IS the single list of panel columns:
+# raw.series_metadata is projected from ALL_SERIES, monthly_panel generates its
+# columns from that table, and snapshot.py takes kappa/transform from here.
+#
+#   kappa = 0         month t is complete at the close of t and Trends updates
+#                     within days -- two months fresher than the payments (4.1).
+#   transform         log_diff: Trends rescales all history to the request's
+#                     peak, and a log difference cancels that constant (4.2).
+#   col_name          the series is yape + plin, in index points, from ONE
+#                     request (one scale). The "code" is a label, not an API key.
+# --------------------------------------------------------------------------- #
+TRENDS_SERIES = [
+    {"code": "GT_YAPE_PLIN", "col_name": "gt_yape_plin", "description": "Google Trends — Yape (Aplicación) + Plin (Tema), Perú, índice 0-100 (suma, una sola solicitud)", "category": "search_interest", "frequency": "mensual", "kappa": 0, "transform": "log_diff", "source": "google_trends"},
+]
+
+ALL_SERIES = TARGET_SERIES + MACRO_SERIES + CCE_SERIES + PAGOS_AGREGADOS_SERIES + TRENDS_SERIES
+
+# What the BCRP fetch script may ask the API for. Everything without an explicit
+# `source` is BCRP.
+BCRP_SERIES = [s for s in ALL_SERIES if s.get("source", "bcrp") == "bcrp"]
 
 # How far back to request each category, as BCRP period strings ("YYYY-M").
 #
@@ -170,6 +194,10 @@ START_BY_CATEGORY = {
     "macro": "2010-1",
     "complementary": "2010-1",
     "pagos_agregados": "2013-1",
+    # Not a BCRP request window: Google Trends is pulled by hand from 2017-01-01
+    # (training_plan.md 4.5). Listed so the "category without a start date" guard
+    # below stays a guard rather than learning an exception.
+    "search_interest": "2017-1",
 }
 
 # Lookups keyed by series code — the single source of truth for renaming columns.

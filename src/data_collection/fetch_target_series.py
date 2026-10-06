@@ -18,7 +18,7 @@ import time
 import requests
 
 from src.data_collection.bcrp_client import fetch_series, save_snapshot
-from src.data_collection.config import ALL_SERIES, START_BY_CATEGORY
+from src.data_collection.config import BCRP_SERIES, START_BY_CATEGORY
 
 END = "2026-12"      # end of the requested window; the API returns what exists
 SLEEP_SECONDS = 0.3  # be polite to a free public API
@@ -27,7 +27,7 @@ SLEEP_SECONDS = 0.3  # be polite to a free public API
 def main() -> None:
     ok, failed = 0, []
 
-    for series in ALL_SERIES:
+    for series in BCRP_SERIES:
         code = series["code"]
         start = START_BY_CATEGORY[series["category"]]
         try:
@@ -41,7 +41,7 @@ def main() -> None:
             failed.append(code)
         time.sleep(SLEEP_SECONDS)
 
-    print(f"\n{ok}/{len(ALL_SERIES)} series saved to data/raw/bcrp/")
+    print(f"\n{ok}/{len(BCRP_SERIES)} series saved to data/raw/bcrp/")
     if failed:
         print(f"Failed: {', '.join(failed)}")
 

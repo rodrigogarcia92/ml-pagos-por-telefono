@@ -1,0 +1,29 @@
+{
+  "pull_date": "2026-10-05",
+  "source": "manual",
+  "csv_file": "2026-10-05_yape_plin.csv",
+  "csv_sha256": "b72d361f03e4edd8f491e59f70c6b3d5a4d03b14a48521dfd862c99c42f2871d",
+  "selections": [
+    {
+      "column": "yape",
+      "name": "Yape",
+      "type": "Aplicación"
+    },
+    {
+      "column": "plin",
+      "name": "Plin",
+      "type": "Tema"
+    }
+  ],
+  "geo": "PE",
+  "period_start": "2017-01-01",
+  "category": "All categories",
+  "property": "Web search",
+  "request_count": 1,
+  "period_end": "2026-09",
+  "final_month_check": {
+    "status": "pending",
+    "note": "needs a second pull on a different day: `trends reconcile`"
+  },
+  "notes": "Manual export. Entity types (Yape = Aplicacion, Plin = Tema) are recorded from training_plan v1.7.1 s4.5; the CSV itself does not carry them. The export includes the incomplete pull month 2026-10 (Yape=100, Plin=13), which is excluded: complete months only. Values are literal 0 (not <1) until 2021; see the data gate."
+}
