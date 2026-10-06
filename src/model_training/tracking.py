@@ -42,7 +42,11 @@ os.environ.setdefault("MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", "true")
 # docs/training_plan.md. Part of the resume key (already_done), so bumping it
 # makes every earlier run invisible to a sweep -- on purpose: runs made under a
 # different protocol are not comparable and must not satisfy "already done".
-PROTOCOL_VERSION = "1.6"
+PROTOCOL_VERSION = "1.7"
+# s0-s4 were run under 1.6 and their sweep specs carry no `protocol_version` key, so a
+# spec without one means THIS (sweep.py). Protocol 1.7 sweeps say so explicitly.
+LEGACY_PROTOCOL_VERSION = "1.6"
+KNOWN_PROTOCOLS = (LEGACY_PROTOCOL_VERSION, PROTOCOL_VERSION)
 EXPERIMENT_PREFIX = os.getenv("MLFLOW_EXPERIMENT_PREFIX", "26.1__")
 
 _SNAPSHOT_RE = re.compile(r"panel_(?P<version>.+)\.parquet$")
@@ -115,8 +119,12 @@ class RunContext:
     encoding: str           # int | onehot | none
     stage: str              # cv | holdout        (never 'tune' — see §8.0)
     snapshot_path: str
+    protocol_version: str = PROTOCOL_VERSION    # 1.6 for s0-s4, 1.7 from s1b on
 
     def __post_init__(self) -> None:
+        if self.protocol_version not in KNOWN_PROTOCOLS:
+            raise ValueError(
+                f"protocol_version must be one of {KNOWN_PROTOCOLS}, got {self.protocol_version!r}")
         if self.horizon not in HORIZONS:
             raise ValueError(f"horizon must be one of {HORIZONS}, got {self.horizon}")
         if self.stage not in ("cv", "holdout"):
@@ -149,7 +157,7 @@ class RunContext:
             "feature_set": self.feature_set,
             "model_family": self.model_family,
             "encoding": self.encoding,
-            "protocol_version": PROTOCOL_VERSION,
+            "protocol_version": self.protocol_version,
             "stage": self.stage,
         }
 

@@ -525,9 +525,19 @@ def test_last_published_month_is_a_target_row(production_like, h):
     assert f.ctx["y_level"].iloc[-1] == p.loc[last_obs, "n_transf_intra_agg"]
 
 
-def test_protocol_version_is_1_6():
-    from src.model_training import tracking
-    assert tracking.PROTOCOL_VERSION == "1.6"
+def test_protocol_version_is_1_7_and_the_legacy_specs_stay_1_6():
+    """Protocol 1.7 is the current one; s0-s4 carry no `protocol_version` key and must keep
+    producing 1.6 runs (they are not edited). See test_protocol_17.py for the 1.7 sweeps."""
+    import yaml
+    from pathlib import Path
+    from src.model_training import sweep, tracking
+
+    assert tracking.PROTOCOL_VERSION == "1.7"
+    assert tracking.LEGACY_PROTOCOL_VERSION == "1.6"
+    for name in ("s0_smoke", "s1_baselines", "s2_proxy_grid", "s4_wallet"):
+        spec = yaml.safe_load(Path(f"configs/sweeps/{name}.yaml").read_text(encoding="utf-8"))
+        assert "protocol_version" not in spec, f"{name} must stay untouched"
+        assert {r.protocol_version for r in sweep.expand(spec, "data/processed/panel_x.parquet")} == {"1.6"}
 
 
 # --------------------------------------------------------------------------- #

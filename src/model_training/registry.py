@@ -131,6 +131,42 @@ class SklearnAdapter:
         return self.estimator.predict(X)
 
 
+class EnsembleAdapter:
+    """Equal-weight mean of the members' z-forecasts (training_plan.md 7.4, `ens3`).
+
+    A model FAMILY, not post-processing: it is tagged, resumed and ranked like any
+    other. Each member keeps its OWN encoding of the same feature set (the SVR gets
+    the one-hot calendar, the trees the integer month) and its own scaler, so unlike
+    every other estimator this one is fed a dict {member family: matrix} rather than
+    one matrix -- train._score_fold prepares each member's matrix from the frame in
+    that member's encoding.
+
+    Equal weights are fixed by the plan, not estimated: ~40 folds would fit noise.
+    The mean is taken on z (the differenced target); train reconstructs to levels
+    ONCE, from the mean (plan 1.2). `member_z_` keeps each member's own forecast of
+    the last predict() call so the ensemble can be scored against its members.
+    """
+
+    uses_context = False
+    is_ensemble = True
+
+    def __init__(self, members: list[tuple[str, SklearnAdapter]]):
+        self.members = members
+        self.member_z_: dict[str, np.ndarray] = {}
+
+    def fit(self, X_by_member: dict, y, ctx=None):
+        for family, est in self.members:
+            est.fit(X_by_member[family], y)
+        return self
+
+    def predict(self, X_by_member: dict, ctx=None) -> np.ndarray:
+        self.member_z_ = {
+            family: np.asarray(est.predict(X_by_member[family]), dtype=float)
+            for family, est in self.members
+        }
+        return np.mean(np.vstack(list(self.member_z_.values())), axis=0)
+
+
 class SarimaxAdapter:
     """SARIMAX on the differenced target z, with the feature set as exogenous input.
 
@@ -267,6 +303,26 @@ MODELS: dict[str, tuple] = {
     ),
 }
 
+# `ens3` (training_plan.md 7.4): the members, in the order they are listed everywhere
+# (tuning table, member_* params, member_z_). Each member is tuned in its own Stage A.
+ENSEMBLES: dict[str, tuple[str, ...]] = {"ens3": ("svr_rbf", "rf", "xgboost")}
+
+
+def _ensemble(name: str):
+    def factory(**member_params):
+        """member_params = {member family: that member's frozen hyperparameters}."""
+        missing = [m for m in ENSEMBLES[name] if m not in member_params]
+        if missing:
+            raise ValueError(f"{name}: no hyperparameters for member(s) {missing}")
+        return EnsembleAdapter([(m, MODELS[m][0](**member_params[m])) for m in ENSEMBLES[name]])
+    return factory
+
+
+# Default grid is empty on purpose: an ensemble has no search space of its own, its
+# members do (grid_for / train._tune_ensemble tune each one separately).
+for _name in ENSEMBLES:
+    MODELS[_name] = (_ensemble(_name), {})
+
 NAIVE_FAMILIES = {k for k in MODELS if k.startswith("naive")}
 
 
@@ -342,7 +398,19 @@ def grid_for(
 LINEAR_FAMILIES = {"ridge", "elasticnet", "svr_rbf"}
 
 
+# An ensemble mixes encodings (SVR one-hot, trees integer), so its own tag says so; the
+# members' encodings are what default_encoding gives them individually.
+MIXED_ENCODING = "mixed"
+
+
 def default_encoding(model_family: str) -> str:
     if model_family in NAIVE_FAMILIES:
         return "none"
+    if model_family in ENSEMBLES:
+        return MIXED_ENCODING
     return "onehot" if model_family in LINEAR_FAMILIES else "int"
+
+
+def member_encodings(model_family: str) -> dict[str, str]:
+    """{member: encoding} for an ensemble."""
+    return {m: default_encoding(m) for m in ENSEMBLES[model_family]}

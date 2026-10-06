@@ -149,7 +149,8 @@ def detail(target: str, horizon: int, top: pd.DataFrame, stage: str,
         print(f"  FEATURES     {tg.get('feature_set')}  encoding={tg.get('encoding')}  "
               f"n={r.data.params.get('n_features')}")
 
-        hp = {k[3:]: v for k, v in r.data.params.items() if k.startswith("hp_")}
+        hp = {(k[3:] if k.startswith("hp_") else k): v for k, v in r.data.params.items()
+              if k.startswith(("hp_", "member_"))}      # member_* = ens3's parents (plan 7.4)
         print(f"  TUNED        {hp if hp else '(nothing to tune)'}")
         print(f"               searched {r.data.params.get('n_candidates_evaluated')} candidates")
         print(f"  PROTOCOL     min_train={r.data.params.get('min_train')}  "

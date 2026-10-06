@@ -27,6 +27,11 @@ SPEC KEYS
   feature_sets                                default feature sets for every model
   feature_sets_by_model                       per-model override, e.g. SARIMAX on
                                               FS0-FS2 only (training_plan.md 7.2)
+  protocol_version                            the tag every run of the sweep carries.
+                                              A spec WITHOUT the key is 1.6 -- s0 to s4
+                                              predate it and must keep producing 1.6
+                                              runs -- so protocol 1.7 specs (s1b, s5)
+                                              say "1.7" explicitly.
   Naive models run once, with feature set "none".
 """
 
@@ -41,13 +46,14 @@ import yaml
 
 from src.model_training import dataset, registry, tracking
 from src.model_training.snapshot import latest_snapshot
-from src.model_training.train import RunConfig, context_for, fit_config, log_config
+from src.model_training.train import RunConfig, check_protocol, context_for, fit_config, log_config
 
 
 def _pairs(spec: dict) -> list[tuple[str, int]]:
     """(target, horizon) pairs, with the horizon taken FROM the target.
 
-    t2 and t3 are the same series at h=1 and h=3; t4 and t5 likewise. Crossing
+    t2 and t3 are the same series at h=1 and h=3; t4 and t5 likewise (t10 / t11: h=5 / h=6,
+    protocol 1.7). Crossing
     targets with horizons independently would happily produce a run tagged
     `target_id=t2, horizon=3` -- which is t3 wearing the wrong name, and the
     MLflow table would carry that lie forever.
@@ -64,10 +70,18 @@ def _pairs(spec: dict) -> list[tuple[str, int]]:
             raise ValueError(
                 f"target {target} has horizon {h}, which is not in horizons={wanted}. "
                 f"Drop the horizons key, or use the target whose horizon you mean "
-                f"(t2/t4 are h=1, t3/t5 are h=3)."
+                f"(t2/t4 are h=1, t3/t5 are h=3, t10 is h=5, t11 is h=6)."
             )
         pairs.append((target, h))
     return pairs
+
+
+def protocol_of(spec: dict) -> str:
+    """The sweep's protocol tag. No key -> 1.6, because s0-s4 predate the key."""
+    p = str(spec.get("protocol_version", tracking.LEGACY_PROTOCOL_VERSION))
+    if p not in tracking.KNOWN_PROTOCOLS:
+        raise ValueError(f"protocol_version {p!r} is not one of {tracking.KNOWN_PROTOCOLS}")
+    return p
 
 
 def _feature_sets(spec: dict, model: str) -> list[str]:
@@ -82,6 +96,7 @@ def expand(spec: dict, snapshot: str) -> list[RunConfig]:
     if unknown:
         raise ValueError(f"Unknown model(s) {unknown}; known: {sorted(registry.MODELS)}")
 
+    protocol = protocol_of(spec)
     out = []
     for target, horizon in _pairs(spec):
         for window, model in itertools.product(spec["windows"], spec["models"]):
@@ -91,7 +106,9 @@ def expand(spec: dict, snapshot: str) -> list[RunConfig]:
                     model_family=model, feature_set=fs,
                     stage=spec.get("stage", "cv"), snapshot=snapshot,
                     tune=spec.get("tune", {}).get(model, {}),
+                    protocol_version=protocol,
                 ))
+                check_protocol(out[-1])      # a 1.7-only target / model / set under a 1.6 spec raises
     return out
 
 
@@ -123,7 +140,7 @@ def main() -> None:
 
     print(f"sweep     : {spec.get('name', Path(a.config).stem)}")
     print(f"snapshot  : {Path(snapshot).name}")
-    print(f"protocol  : {tracking.PROTOCOL_VERSION}")
+    print(f"protocol  : {protocol_of(spec)}")
     print(f"runs      : {len(configs)}\n")
 
     for cfg in configs:

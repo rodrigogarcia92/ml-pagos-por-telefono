@@ -194,6 +194,18 @@ class Frame:
     # Provenance of `seas_transfer` when it is a column (else None): where the
     # factors came from, the cutoff, and the twelve values. Logged by train.py.
     seas_transfer: dict | None = None
+    # The SAME rows in the other encodings, for a model family that mixes them (ens3:
+    # SVR one-hot, trees integer). Identical index, target and ctx by construction;
+    # train.fit_config asserts it. Empty for every other family.
+    alt_encodings: dict | None = None
+
+    def for_encoding(self, encoding: str) -> "Frame":
+        """This frame's design matrix in `encoding` (itself, or the stored alternative)."""
+        if encoding == self.encoding:
+            return self
+        if not self.alt_encodings or encoding not in self.alt_encodings:
+            raise KeyError(f"frame has no {encoding!r} encoding (has {self.encoding!r})")
+        return self.alt_encodings[encoding]
 
 
 def load_snapshot(panel_path: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:

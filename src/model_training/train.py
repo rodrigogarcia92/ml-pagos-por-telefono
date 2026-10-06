@@ -36,7 +36,7 @@ import argparse
 import itertools
 import json
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import matplotlib
@@ -73,6 +73,30 @@ class RunConfig:
     encoding: str | None = None
     snapshot: str | None = None
     tune: dict = field(default_factory=dict)
+    # 1.6 only for the s0-s4 specs (sweep.py gives a spec with no key the legacy value);
+    # everything new is 1.7. Part of the resume key.
+    protocol_version: str = tracking.PROTOCOL_VERSION
+
+
+# What exists only from protocol 1.7 on (training_plan.md 3, 5.4, 7.4). A 1.6 run asking
+# for one of these is a mislabelled run -- refused rather than tagged "1.6".
+PROTOCOL_17_ONLY = {
+    "target_id": {"t10", "t11"},
+    "model_family": {"ens3"},
+    "feature_set": {"FS3_gt"},
+}
+
+
+def check_protocol(cfg: "RunConfig") -> None:
+    """Refuse a configuration that uses a 1.7 feature under a 1.6 tag."""
+    if cfg.protocol_version == tracking.PROTOCOL_VERSION:
+        return
+    used = {k: getattr(cfg, k) for k, only in PROTOCOL_17_ONLY.items() if getattr(cfg, k) in only}
+    if used:
+        raise ValueError(
+            f"{used} exist only from protocol {tracking.PROTOCOL_VERSION}, but this run is "
+            f"tagged {cfg.protocol_version}. Set protocol_version: '{tracking.PROTOCOL_VERSION}' "
+            "in the sweep spec.")
 
 
 @dataclass
@@ -131,6 +155,7 @@ def context_for(cfg: RunConfig, snapshot_path: str) -> tracking.RunContext:
         model_family=cfg.model_family,
         encoding=cfg.encoding or registry.default_encoding(cfg.model_family),
         stage=cfg.stage, snapshot_path=snapshot_path,
+        protocol_version=cfg.protocol_version,
     )
 
 
@@ -171,7 +196,18 @@ def _score_fold(model, frame, tr, te) -> tuple[dict, np.ndarray]:
         )
     scale_m = metrics.mase_period(splits.MIN_TRAIN[frame.window])
 
-    if model.uses_context:
+    if getattr(model, "is_ensemble", False):
+        # ens3: every member gets ITS OWN encoding of the frame and its own imputer and
+        # scaler, fitted on the training rows only; the forecast is the mean of the
+        # members' z-forecasts, reconstructed to levels once below (plan 7.4, 1.2).
+        Xtr_by, Xte_by = {}, {}
+        for family, _ in model.members:
+            Xa = frame.for_encoding(registry.default_encoding(family)).X.to_numpy()
+            Xtr_by[family], Xte_by[family], _ = _prepare(
+                Xa[tr], Xa[te], Xa[tr[-1] + 1: te[0]])
+        model.fit(Xtr_by, ytr, None)
+        z_hat = model.predict(Xte_by, None)
+    elif model.uses_context:
         model.fit(None, ytr, ctx_tr)
         z_hat = model.predict(None, ctx_te)
     else:
@@ -193,7 +229,25 @@ def _score_fold(model, frame, tr, te) -> tuple[dict, np.ndarray]:
         seasonal_level=ctx_te["seas_level"].to_numpy(),
         scale_m=scale_m,
     )
+    if getattr(model, "is_ensemble", False):
+        # Each member's own fold MASE, so "is the ensemble better than its best member"
+        # can be answered from the run itself (plan 7.4).
+        for family, z in model.member_z_.items():
+            m[f"mase_{family}"] = metrics.mase(
+                ctx_te["y_level"].to_numpy(),
+                metrics.reconstruct(ctx_te["anchor"].to_numpy(), z),
+                ctx_tr["y_level"].to_numpy(), scale_m,
+            )
     return m, yhat
+
+
+def hyperparameter_params(cfg: RunConfig, best_params: dict) -> dict:
+    """MLflow params for the tuned hyperparameters: `hp_{param}`, or for an ensemble
+    `member_{family}__{param}` (plan 7.4) -- the parents' hyperparameters, logged."""
+    if cfg.model_family in registry.ENSEMBLES:
+        return {f"member_{family}__{k}": v
+                for family, params in best_params.items() for k, v in params.items()}
+    return {f"hp_{k}": v for k, v in best_params.items()}
 
 
 def _pyval(v):
@@ -220,6 +274,8 @@ def _tune(frame, cfg, n_cv) -> tuple[dict, pd.DataFrame]:
     from a DataFrame row, which would have turned ints into floats and None into
     NaN. Both fixed; test_tuning_* pins them.
     """
+    if cfg.model_family in registry.ENSEMBLES:
+        return _tune_ensemble(frame, cfg, n_cv)
     grid = registry.grid_for(cfg.model_family, cfg.feature_set, cfg.tune, cfg.window)
     if not grid:
         return {}, pd.DataFrame()
@@ -268,6 +324,24 @@ def _tune(frame, cfg, n_cv) -> tuple[dict, pd.DataFrame]:
     return best, table
 
 
+def _tune_ensemble(frame, cfg, n_cv) -> tuple[dict, pd.DataFrame]:
+    """Stage A for ens3: every member tuned INDEPENDENTLY (plan 7.4).
+
+    Each member runs the ordinary single-model Stage A -- its own full grid, its own
+    encoding of the frame, the same inner folds (they depend only on n_cv, h and the
+    window) -- and sees nothing of the other members or of the ensemble's score.
+    Returns {member: its best hyperparameters} and one table with a `member` column.
+    """
+    best, tables = {}, []
+    for family in registry.ENSEMBLES[cfg.model_family]:
+        sub = replace(cfg, model_family=family, tune=(cfg.tune or {}).get(family, {}))
+        member_frame = frame.for_encoding(registry.default_encoding(family))
+        best[family], table = _tune(member_frame, sub, n_cv)
+        tables.append(table.assign(member=family))
+    out = pd.concat(tables, ignore_index=True)
+    return best, out[["member"] + [c for c in out.columns if c != "member"]]
+
+
 def _forecast_plot(dates, actual, predicted, title: str) -> plt.Figure:
     fig, ax = plt.subplots(figsize=(9, 4))
     ax.plot(dates, actual, label="actual", linewidth=1.6)
@@ -285,6 +359,7 @@ def _forecast_plot(dates, actual, predicted, title: str) -> plt.Figure:
 # --------------------------------------------------------------------------- #
 def fit_config(cfg: RunConfig) -> FitResult:
     """Stages A and B (or A and C) for one configuration. No MLflow."""
+    check_protocol(cfg)
     snapshot_path = cfg.snapshot or str(latest_snapshot())
     panel, meta = dataset.load_snapshot(snapshot_path)
 
@@ -292,13 +367,30 @@ def fit_config(cfg: RunConfig) -> FitResult:
     fs = load_feature_sets()
     columns = [] if naive else registry.model_columns(cfg.model_family, fs[cfg.feature_set])
     ctx = context_for(cfg, snapshot_path)
-    encoding = ctx.encoding if columns else "int"   # "none" is a tag, not a build mode
+    ensemble = cfg.model_family in registry.ENSEMBLES
+    # "none" and "mixed" are tags, not build modes.
+    encoding = "int" if (not columns or ensemble) else ctx.encoding
 
-    frame = dataset.build(
-        panel, meta,
-        target_id=cfg.target_id, horizon=cfg.horizon, window=cfg.window,
-        columns=columns, encoding=encoding,
-    )
+    def build_frame(enc: str) -> dataset.Frame:
+        return dataset.build(
+            panel, meta,
+            target_id=cfg.target_id, horizon=cfg.horizon, window=cfg.window,
+            columns=columns, encoding=enc,
+        )
+
+    frame = build_frame(encoding)
+    if ensemble:
+        # The members use different encodings of the same rows; build the others and
+        # prove they ARE the same rows -- a frame that differed in more than the
+        # calendar columns would make the members forecast different targets.
+        wanted = set(registry.member_encodings(cfg.model_family).values()) - {encoding}
+        others = {e: build_frame(e) for e in wanted}
+        for e, f in others.items():
+            if not (f.X.index.equals(frame.X.index) and f.y.equals(frame.y)
+                    and f.ctx.equals(frame.ctx)):
+                raise RuntimeError(f"{cfg.model_family}: the {e!r} frame differs from the "
+                                   f"{encoding!r} frame in rows, target or context")
+        frame.alt_encodings = others
 
     # The holdout is carved off the END and is invisible until Stage C. Rows are
     # one per target month and the window bounds the target month (protocol 1.6,
@@ -353,7 +445,7 @@ def log_config(fit: FitResult) -> RunResult:
 
     with tracking.parent_run(ctx, description=note, n_folds=n_folds) as parent:
         mlflow.log_params({
-            **{f"hp_{k}": v for k, v in fit.best_params.items()},
+            **hyperparameter_params(cfg, fit.best_params),
             "min_train": splits.MIN_TRAIN[cfg.window],
             "purge": cfg.horizon - 1,
             "n_folds": n_folds,
@@ -369,6 +461,9 @@ def log_config(fit: FitResult) -> RunResult:
             "n_folds_nan_metric": sum(
                 any(np.isnan(v) for v in d.values()) for d in fit.per_fold),
             "holdout_months": fit.n_hold,   # the final N target months (h-independent)
+            **({"member_encodings": ",".join(
+                f"{m}={e}" for m, e in registry.member_encodings(cfg.model_family).items())}
+               if cfg.model_family in registry.ENSEMBLES else {}),
             "window_target_start": f"{frame.target_start:%Y-%m}",
             "window_target_end": f"{frame.target_end:%Y-%m}",
             "seed": SEED,
