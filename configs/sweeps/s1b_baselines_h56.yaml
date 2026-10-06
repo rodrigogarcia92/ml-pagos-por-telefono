@@ -1,0 +1,32 @@
+# s1b_baselines_h56 -- protocol 1.7 naive floor at the quarter-ahead horizons. 15 parents.
+# training_plan.md section 7.4 (grid), 9.2 step 5, execution order.
+#
+#   5 naive variants x 3 targets (t3 = h3, t10 = h5, t11 = h6) x w2019   = 15
+#
+# t3 is RE-RUN under 1.7 on the new snapshot so every later FS3-vs-FS3_gt and
+# member-vs-ensemble comparison is paired: same snapshot, same folds, same protocol.
+# The 1.6 runs of t3 stay valid for what they measured and are never ranked with these.
+#
+# GATE (9.2 step 5): naive_drift is checked as the hurdle at h=5 / h=6. If another baseline
+# wins clearly there, the O-11 rule applies: the best baseline on CV becomes the hurdle,
+# logged as a section 11 deviation WITH that evidence -- not by editing this file.
+#
+# Run AFTER the snapshot that carries gt_yape_plin exists (it is the snapshot s5 will use;
+# a sweep runs against exactly one snapshot, plan 4.0, and the t3 controls must share it).
+#
+#   python -m src.model_training.sweep --config configs/sweeps/s1b_baselines_h56.yaml --dry-run
+#   python -m src.model_training.sweep --config configs/sweeps/s1b_baselines_h56.yaml
+
+name: s1b_baselines_h56
+protocol_version: "1.7"
+
+targets: [t3, t10, t11]
+windows: [w2019]
+stage:   cv
+
+models:
+  - naive_last
+  - naive_drift
+  - naive_seasonal
+  - naive_seasdrift
+  - naive_calendar

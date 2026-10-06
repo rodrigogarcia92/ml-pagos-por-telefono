@@ -1,0 +1,50 @@
+# s5_trends_ens -- the Google Trends test and the ens3 ensemble. 24 parents, Stage A + B.
+# training_plan.md section 5.4 (FS3_gt), 7.4 (ens3, P1-P4, D1-D3), 9.2 step 6.
+#
+#   3 targets (t3, t10, t11) x 4 families (svr_rbf, rf, xgboost, ens3) x 2 sets = 24
+#
+#   FS3_activity  the control (22 tree / 32 linear columns)
+#   FS3_gt        FS3 + gt_d0, gt_ma3, gt_ma12 (25 / 35)
+#
+# ens3 = equal-weight mean of the SVR, random-forest and XGBoost z-forecasts, each member
+# tuned in its OWN Stage A on its full s2 grid (svr 36, rf 54, xgboost 288 candidates) with
+# its own encoding of the same feature set. No weights are estimated.
+#
+# BEFORE RUNNING
+#   1. The data gate (scripts/trends_gate.py, plan 9.2 G1-G3) has been run and read.
+#      This spec does NOT branch on it: if G3 fails the plan runs FS3 only (12 parents) and
+#      if G1 fails it runs on w2021; both are a decision for the owner, taken from the gate
+#      report and recorded in section 11, not something this file decides for them.
+#   2. A snapshot with gt_yape_plin exists (load_trends -> dbt build -> snapshot) and the
+#      s1b t3 controls were run on that same snapshot.
+#   3. `--dry-run` shows 24.
+#
+# dataset.build REFUSES to construct gt features where the index is 0 (a log difference is
+# undefined); in that case the FS3_gt runs are reported FAILED by the sweep, not repaired.
+#
+# DECISION RULES (7.4, fixed before running; D3: no change after s5 has been read):
+#   D1  Trends adopted only if ens3 on FS3_gt beats ens3 on FS3 by > 1 SE at >= 2 of 3 horizons
+#   D2  ensemble adopted only if ens3 is not worse than its best member by > 1 SE at every horizon
+#
+#   python -m src.model_training.sweep --config configs/sweeps/s5_trends_ens.yaml --dry-run
+#   python -m src.model_training.sweep --config configs/sweeps/s5_trends_ens.yaml --jobs 4
+#
+# Interrupting is safe: finished runs are skipped on restart (same tag set, data_version and
+# protocol_version).
+
+name: s5_trends_ens
+protocol_version: "1.7"
+
+targets: [t3, t10, t11]
+windows: [w2019]
+stage: cv
+
+models:
+  - svr_rbf
+  - rf
+  - xgboost
+  - ens3
+
+feature_sets:
+  - FS3_activity
+  - FS3_gt
