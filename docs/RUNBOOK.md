@@ -555,9 +555,12 @@ pass `--confirm`, and MLflow has no finished holdout run for the two parents on 
 Copy-Item mlflow/mlflow.db "mlflow/mlflow_$(Get-Date -Format yyyyMMdd_HHmm).db"      # §9, before
 pytest -q                                       # green, or stop
 python -m src.model_training.sweep --config configs/sweeps/s6_holdout.yaml --dry-run # must show 2 runs
-python scripts/run_holdout.py                   # preview: plan + the three guards, exit 0
-python scripts/run_holdout.py --confirm         # THE run: ~1 minute, 2 parents
+python scripts/run_holdout.py --snapshot data/processed/panel_20261005T000000Z.parquet            # preview: plan + the three guards, exit 0
+python scripts/run_holdout.py --snapshot data/processed/panel_20261005T000000Z.parquet --confirm   # THE run: ~1 minute, 2 parents
 ```
+
+Name the snapshot explicitly: the holdout must be evaluated on the `data_version` the model was frozen on, and `--snapshot` stops a newer
+file in `data/processed/` (a monthly refresh makes one) from being picked up. The run raises if the two differ.
 
 It prints the comparison table and two blocks of text: one row for §11 and one paragraph for the README. Paste both **as printed**, commit, and
 stop. If ens3 does not beat `naive_drift`, the README says so and `naive_drift` becomes the production fallback; that is the rule, not a judgement call.
