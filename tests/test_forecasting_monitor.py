@@ -100,7 +100,7 @@ def test_months_without_a_forecast_are_not_scored_and_forecasts_without_an_actua
 
 def test_rolling_mape_uses_the_last_window_and_coverage_the_whole_history():
     rows = [(f"2026-{m:02d}", 100.0, "v", f"c{m:02d}") for m in range(1, 7)]
-    act = _actual(**{f"2026_{m:02d}": a for m, a in zip(range(1, 7), [100, 100, 100, 100, 104, 96])})
+    act = _actual(**{f"2026_{m:02d}": a for m, a in zip(range(1, 7), [100, 100, 100, 100, 104, 96], strict=True)})
     out = monitor.summarize(_history(rows), act, snapshot_version="v", window=2)
     # last two: |100-104|/104 and |100-96|/96
     assert out["rolling_mape_pct"] == pytest.approx((4 / 104 * 100 + 4 / 96 * 100) / 2, abs=1e-3)
