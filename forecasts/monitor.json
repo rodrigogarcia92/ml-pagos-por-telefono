@@ -1,0 +1,21 @@
+{
+  "status": "ok",
+  "checked_at": "2026-10-07T22:06:20+00:00",
+  "snapshot_data_version": "20261007T000000Z",
+  "threshold_pct": 10.0,
+  "n_scored": 0,
+  "latest_scored_month": null,
+  "pending_months": [
+    "2026-10"
+  ],
+  "rolling_window_months": 12,
+  "rolling_mape_pct": null,
+  "coverage": {
+    "n": 0,
+    "within_80": null,
+    "within_90": null,
+    "nominal_80": 0.8,
+    "nominal_90": 0.9
+  },
+  "scored": []
+}
