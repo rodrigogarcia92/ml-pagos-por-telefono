@@ -23,7 +23,7 @@ So forecasting intrabank transfers is, in practice, forecasting the Yape and Pli
 >
 > **Main drivers:** the calendar (working days, weekends, holidays), cash in circulation, and economic activity.
 >
-> **Status:** the model is frozen and has passed its one-time final test on 12 months it had never seen (typical error 2.8% vs 7.6% for the trend line). The monthly auto-refresh is rolling out (see [Latest forecast](#latest-forecast) and [Roadmap](#9-roadmap)).
+> **Status:** in production. The model is frozen and has passed its one-time final test on 12 months it had never seen (typical error 2.8% vs 7.6% for the trend line). A scheduled job publishes a new forecast every month (see [Latest forecast](#latest-forecast) and [Roadmap](#9-roadmap)).
 
 | Aspect | Detail |
 |---|---|
@@ -162,10 +162,10 @@ The ensemble passed. Compared month by month, its advantage is about three stand
 | 80% range | 1,227 – 1,405 million (about −4% / +10%) |
 | 90% range | 1,215 – 1,419 million (about −5% / +11%) |
 | Last observed month | July 2026: 1,154 million |
-| Data version | 20261005T000000Z |
-| Published | Not yet. The forecast is waiting in an open pull request (#1) |
+| Data version | 20261007T000000Z |
+| Published | 7 October 2026 (pull request #3) |
 
-The forecasts are published automatically each month as a pull request. Once it is merged, the newest one is always in `forecasts/` and `forecasts/history.csv`.
+The forecasts are published automatically each month as a pull request. Once it is merged, the newest one is always in [forecasts/](forecasts/), and the full list is in [forecasts/history.csv](forecasts/history.csv).
 
 The range comes from the model's real backtest errors. It is wider on the upside because in fast-growth periods actual transfers came in above the forecast more often than below.
 
@@ -210,6 +210,8 @@ data/processed/panel_*.parquet   frozen training snapshot (training never touche
       ▼
 features → backtesting → models → MLflow (experiment tracking: every run, setting and score logged)
 ```
+
+A scheduled GitHub Actions job runs this chain every month. BCRP publishes on no fixed day, so the job tries three times: on the 10th, 20th and 28th. If a new month has been published, it forecasts the next one and opens a pull request with the new raw data and the forecast. If not, it does nothing. If a step fails, it opens an issue. After the first month is scored, the same job checks the drift alert.
 
 ### 5.2 Data
 
@@ -278,8 +280,8 @@ Negative results save time and money: they show which data is not worth buying, 
 | Experiment tracking and model comparison (MLflow) | ✅ Live |
 | 3-month forecasting model, selected under a pre-registered protocol | ✅ Done |
 | One-time holdout test (ensemble vs trend line) | ✅ Done: passed (MASE 0.213 vs 0.568) |
-| **Monthly auto-refresh**: a scheduled GitHub Actions job pulls each new BCRP release, rebuilds the warehouse, re-scores the model and publishes the next forecast | 🚧 **Rolling out (October 2026)** |
-| **Drift alert**: flags the forecast when it misses by more than 10% two months in a row | 🚧 **Rolling out (October 2026)** |
+| **Monthly auto-refresh**: a scheduled GitHub Actions job pulls each new BCRP release, rebuilds the warehouse, re-scores the model and publishes the next forecast | ✅ **Live** (since October 2026) |
+| **Drift alert**: flags the forecast when it misses by more than 10% two months in a row | ✅ **Live** (first check once the October 2026 actual is published) |
 | Forecast API: FastAPI → Docker → Google Cloud Run | 📅 Planned |
 | Transfer-learning model across the long aggregate series for a Yape/Plin split | 📅 Planned |
 | Forecasting transfer **value** (soles) and wallet market share | 📅 Planned |
