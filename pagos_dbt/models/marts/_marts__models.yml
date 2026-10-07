@@ -26,6 +26,8 @@ models:
           Zero until 2021 -- see the data gate.
         data_tests:
           - dbt_utils.accepted_range:
+              config:
+                enabled: "{{ var('enable_trends', false) }}"
               arguments:
                 min_value: 0
                 max_value: 200

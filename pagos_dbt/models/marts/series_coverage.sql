@@ -40,8 +40,10 @@ with bounds as (
     from (
 
         select series_code, obs_date, value from {{ ref('stg_bcrp_observations') }}
+        {%- if var('enable_trends', false) %}
         union all
         select series_code, obs_date, value from {{ ref('stg_trends') }}
+        {%- endif %}
 
     ) as obs
 

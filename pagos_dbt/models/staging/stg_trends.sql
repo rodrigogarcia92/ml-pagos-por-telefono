@@ -18,6 +18,8 @@
 -- The singular tests assert_stg_trends_single_pull and assert_panel_gt_from_one_pull
 -- are what make rule 1 a check and not a comment.
 
+{{ config(enabled=var('enable_trends', false)) }}
+
 {%- set chosen = var('trends_pull_id', none) %}
 
 with pulls as (

@@ -32,6 +32,8 @@ sources:
             description: Filename in data/raw/bcrp/ that produced this row.
 
       - name: trends_observations
+        config:
+          enabled: "{{ var('enable_trends', false) }}"
         description: >
           Google Trends, one row per (pull, entity, month): Yape ("Aplicación") and
           Plin ("Tema") from ONE request per pull, as exported, complete months only

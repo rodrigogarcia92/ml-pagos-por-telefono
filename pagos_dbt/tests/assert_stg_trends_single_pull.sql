@@ -1,3 +1,5 @@
+{{ config(enabled=var('enable_trends', false)) }}
+
 -- T8 (training_plan.md 9.2), part 1. The single-pull rule: stg_trends must hold
 -- EXACTLY ONE pull_id. Returns a row (= the test fails) when it holds none -- the
 -- var `trends_pull_id` names a pull that is not in raw -- or more than one.

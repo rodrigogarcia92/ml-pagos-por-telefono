@@ -72,6 +72,7 @@ models:
                 to: ref('stg_trends')
                 field: series_code
               config:
+                enabled: "{{ var('enable_trends', false) }}"
                 where: "category = 'search_interest'"
       - name: col_name
         description: Becomes a column name in marts.monthly_panel.
@@ -86,6 +87,8 @@ models:
                 values: ['target', 'macro', 'complementary', 'pagos_agregados', 'search_interest']
 
   - name: stg_trends
+    config:
+      enabled: "{{ var('enable_trends', false) }}"
     description: >
       Google Trends, ONE pull, ONE row per month: yape + plin in index points
       (training_plan.md 4.5). The single-pull rule lives here -- the pull is
