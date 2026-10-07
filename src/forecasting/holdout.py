@@ -75,9 +75,8 @@ def marker_present(plan_path: str | Path = PLAN) -> bool:
 
 def _probe_tracking_server() -> None:
     """Fail in two seconds, not after MLflow's default retries, when the server is down."""
-    import requests
-
     import mlflow
+    import requests
 
     uri = mlflow.get_tracking_uri()
     if uri.startswith("http"):

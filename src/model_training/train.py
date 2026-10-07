@@ -44,13 +44,13 @@ import matplotlib
 
 matplotlib.use("Agg")  # no display on a headless sweep
 import matplotlib.pyplot as plt
+import mlflow
 import numpy as np
 import pandas as pd
 import yaml
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 
-import mlflow
 from src.model_training import dataset, metrics, registry, splits, tracking
 from src.model_training.snapshot import latest_snapshot
 

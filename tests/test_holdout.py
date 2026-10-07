@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import mlflow
 import numpy as np
 import pandas as pd
 import pytest
 import yaml
 
-import mlflow
 from src.forecasting import holdout, production
 from src.model_training import registry, splits, sweep, tracking
 from src.model_training.train import RunConfig, context_for, fit_config

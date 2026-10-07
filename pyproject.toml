@@ -32,3 +32,8 @@ ignore = ["E501", "B008"]
 # Tests assert on magic numbers on purpose -- the numbers ARE the specification
 # (29 folds, 6 columns, MASE = 1.0), and naming them would hide the assertion.
 "tests/*" = ["E402"]
+
+[tool.ruff.lint.isort]
+# The local, gitignored `mlflow/` data folder at the repo root would otherwise make ruff treat
+# `import mlflow` as first-party here but third-party on CI.
+known-third-party = ["mlflow"]

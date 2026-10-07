@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import mlflow
 import numpy as np
 import pandas as pd
 import pytest
 
-import mlflow
 from src.model_training import metrics, report, tracking
 from src.model_training.train import RunConfig, fit_config, log_config
 

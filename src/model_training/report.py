@@ -41,9 +41,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import mlflow
 import pandas as pd
 
-import mlflow
 from src.model_training import metrics, tracking  # noqa: F401 -- tracking loads .env, sets the URI
 
 COLS = ["model_family", "feature_set", "window", "n_folds", "evaluation_status",

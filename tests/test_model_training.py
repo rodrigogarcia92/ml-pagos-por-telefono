@@ -726,6 +726,7 @@ def _snapshot_files(tmp_path, wallet_panel):
 
 def _log(cfg, tmp_path):
     import mlflow
+
     from src.model_training import tracking
     from src.model_training.train import context_for, fit_config, log_config
 
@@ -882,6 +883,7 @@ def test_seas_transfer_runs_log_their_factor_source_and_cutoff(local_mlflow, wal
     from pathlib import Path
 
     import mlflow
+
     from src.model_training.train import RunConfig
 
     snap = _snapshot_files(local_mlflow, wallet_panel)

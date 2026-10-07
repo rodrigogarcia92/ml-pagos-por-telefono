@@ -290,6 +290,7 @@ def test_a_17_target_in_a_spec_without_the_protocol_key_is_refused():
 # --------------------------------------------------------------------------- #
 def test_ens3_logs_its_members_hyperparameters_tags_and_member_metrics(tmp_path, snapshot, fitted):
     import mlflow
+
     from src.model_training.train import log_config
 
     old = mlflow.get_tracking_uri()
