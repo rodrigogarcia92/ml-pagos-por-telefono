@@ -87,6 +87,27 @@ def git_sha() -> str:
         return "unknown"
 
 
+def git_tree_state(cwd: str | Path | None = None, max_paths: int = 20) -> dict:
+    """The commit a run started from and what, if anything, differed from it.
+
+    `git_sha` is the bare short SHA (never suffixed). `tree_dirty` says whether the working tree
+    differed from that commit when this was called, and `tree_changes` lists up to `max_paths`
+    of the changed paths (untracked files included, ignored ones not). A monthly refresh that
+    fetched new raw JSON before predicting is legitimately dirty; the list shows it is only that.
+    """
+    def git(*args: str) -> str:
+        return subprocess.check_output(
+            ["git", "-c", "core.quotepath=off", *args], text=True, encoding="utf-8",
+            stderr=subprocess.DEVNULL, cwd=cwd).strip("\n")
+    try:
+        sha = git("rev-parse", "--short", "HEAD").strip()
+        lines = [ln for ln in git("status", "--porcelain", "--untracked-files=all").splitlines() if ln]
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return {"git_sha": "unknown", "tree_dirty": None, "tree_changes": []}
+    paths = sorted(ln[3:].split(" -> ")[-1] for ln in lines)
+    return {"git_sha": sha, "tree_dirty": bool(paths), "tree_changes": paths[:max_paths]}
+
+
 def data_version(snapshot_path: str | Path) -> str:
     """Read the data version out of the snapshot filename (training_plan.md §4.0).
 

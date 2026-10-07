@@ -104,7 +104,7 @@ def forecast(panel: pd.DataFrame, meta: pd.DataFrame, cfg: dict, *, data_version
         "members": {fam: round(anchor * float(np.exp(z)), 3) for fam, z in z_members.items()},
         "model_id": production.model_id(cfg),
         "config_hash": production.config_hash(cfg_path),
-        "git_sha": tracking.git_sha(),
+        **tracking.git_tree_state(),
         "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
 
