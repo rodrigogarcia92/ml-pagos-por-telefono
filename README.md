@@ -155,7 +155,7 @@ The ensemble passed. Compared month by month, its advantage is about three stand
 
 ### Latest forecast
 
-| | |
+| Item | Value |
 |---|---|
 | Target month | October 2026 |
 | Point forecast | **1,274 million** transfers (1,273.6) |

@@ -7,8 +7,8 @@ name: CI
 # snapshot path, never a connection), and it is what lets CI exist without any
 # secret. Do NOT add a step that needs Google credentials to this workflow.
 #
-# Later (roadmap step 12) a second job builds the Docker image on a Linux
-# runner, since the development machine never runs `docker build`.
+# A second job that builds the Docker image on a Linux runner is planned
+# (roadmap step 12).
 
 on:
   push:
@@ -20,12 +20,12 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -39,11 +39,7 @@ jobs:
       - name: Tests (the six that guard against silent leaks, plus the rest)
         run: python -m pytest
 
-      # Advisory for now: the codebase predates ruff being enforced (15 lint
-      # findings, 17 files the formatter would touch). Making this blocking is
-      # its own cleanup commit, not something to smuggle into a feature change.
-      - name: Lint (advisory)
-        continue-on-error: true
+      - name: Lint
         run: |
           pip install ruff
           ruff check .
