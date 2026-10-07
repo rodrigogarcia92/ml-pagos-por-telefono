@@ -26,7 +26,7 @@ def _uses(prefix: str):
 
 def test_it_parses_and_runs_on_ubuntu_with_python_311():
     job = DOC["jobs"]["refresh"]
-    assert job["runs-on"] == "ubuntu-latest"
+    assert job["runs-on"] == "ubuntu-24.04"
     py, = _uses("actions/setup-python@")
     assert py["with"]["python-version"] == "3.11"
     assert DOC["name"] == "Monthly refresh"
@@ -49,7 +49,7 @@ def test_permissions_are_exactly_the_four_requested():
 
 
 def test_auth_is_workload_identity_federation_with_no_json_key_anywhere():
-    auth, = _uses("google-github-actions/auth@v2")
+    auth, = _uses("google-github-actions/auth@v3")
     assert auth["with"] == {"workload_identity_provider": "${{ secrets.GCP_WIF_PROVIDER }}",
                             "service_account": "${{ secrets.GCP_SERVICE_ACCOUNT }}"}
     assert _uses("google-github-actions/setup-gcloud@")
@@ -93,7 +93,7 @@ def test_it_runs_the_orchestrator_with_the_app_environment_and_reacts_to_its_exi
 
 
 def test_a_new_month_opens_a_titled_pull_request_with_the_right_files():
-    pr_step, = _uses("peter-evans/create-pull-request@v6")
+    pr_step, = _uses("peter-evans/create-pull-request@v8")
     assert pr_step["if"] == "steps.summary.outputs.outcome == 'forecast'"
     w = pr_step["with"]
     assert w["title"] == "forecast: ${{ steps.summary.outputs.target_month }}"
@@ -108,7 +108,7 @@ def test_no_new_month_opens_nothing():
     for s in STEPS:
         if "pull-request" in str(s.get("uses", "")) or "gh issue create" in s.get("run", ""):
             assert "if" in s                                   # every opener is conditional
-    pr_step, = _uses("peter-evans/create-pull-request@v6")
+    pr_step, = _uses("peter-evans/create-pull-request@v8")
     assert "outcome == 'forecast'" in pr_step["if"] and "no_new_month" not in pr_step["if"]
 
 

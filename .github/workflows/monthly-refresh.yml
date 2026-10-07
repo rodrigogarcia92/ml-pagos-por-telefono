@@ -54,12 +54,12 @@ env:
 
 jobs:
   refresh:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -83,12 +83,12 @@ jobs:
           .venv-dbt/bin/pip install -r requirements-dbt.txt
 
       - name: Authenticate to Google Cloud (Workload Identity Federation)
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
 
       # dbt reads its connection from profiles.yml. Generated here, per run, and never committed
       # (it is in .gitignore). method: oauth uses the credentials the auth step just exported.
@@ -162,7 +162,7 @@ jobs:
           {
             echo "## Forecast for $(jq -r '.target_month' "$rec")"
             echo
-            echo "| | |"
+            echo "| Item | Value |"
             echo "|---|---|"
             echo "| Point forecast | **$(jq -r '.point_forecast' "$rec")** $(jq -r '.unit' "$rec") |"
             echo "| 80% band | $(jq -r '.band_80 | "\(.[0]) .. \(.[1])"' "$rec") |"
@@ -176,8 +176,8 @@ jobs:
             echo "## Drift monitor: \`$(jq -r '.status' forecasts/monitor.json)\`"
             echo
             echo "- Months scored so far: $(jq -r '.n_scored' forecasts/monitor.json)"
-            echo "- Rolling MAPE: $(jq -r '.rolling_mape_pct // "n/a"' forecasts/monitor.json)%"
-            echo "- Band coverage: 80% -> $(jq -r '.coverage.within_80 // "n/a"' forecasts/monitor.json), 90% -> $(jq -r '.coverage.within_90 // "n/a"' forecasts/monitor.json)"
+            echo "- Rolling MAPE: $(jq -r 'if .rolling_mape_pct == null then "n/a" else "\(.rolling_mape_pct)%" end' forecasts/monitor.json)"
+            echo "- Band coverage: 80% -> $(jq -r 'if .coverage.within_80 == null then "n/a" else "\(.coverage.within_80)" end' forecasts/monitor.json), 90% -> $(jq -r 'if .coverage.within_90 == null then "n/a" else "\(.coverage.within_90)" end' forecasts/monitor.json)"
             echo "- Reason: $(jq -r '.reason // "none"' forecasts/monitor.json)"
             echo
             echo "Contains the new raw BCRP JSON (\`data/raw/bcrp/\`), the forecast files and \`forecasts/monitor.json\`."
@@ -186,7 +186,7 @@ jobs:
 
       - name: Open the forecast pull request
         if: steps.summary.outputs.outcome == 'forecast'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: forecast/${{ steps.summary.outputs.target_month }}
           base: ${{ github.event.repository.default_branch }}
@@ -209,7 +209,7 @@ jobs:
             echo "The monthly monitor reports **alert**: the two latest scored months were both off by more than 10%."
             echo
             echo "- $(jq -r '.reason // "see forecasts/monitor.json"' forecasts/monitor.json)"
-            echo "- Rolling MAPE: $(jq -r '.rolling_mape_pct' forecasts/monitor.json)%"
+            echo "- Rolling MAPE: $(jq -r 'if .rolling_mape_pct == null then "n/a" else "\(.rolling_mape_pct)%" end' forecasts/monitor.json)"
             echo "- Run: $run_url"
           } > "$RUNNER_TEMP/alert.md"
           existing=$(gh issue list --label drift-alert --state open --json number --jq '.[0].number // empty')
