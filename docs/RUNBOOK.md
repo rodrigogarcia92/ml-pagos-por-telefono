@@ -504,10 +504,22 @@ Merge the PR to publish the month.
 If the first run fails at `fetch` with `BcrpBlockedError`, BCRP is serving a bot-protection page to GitHub's addresses (plan O-13). Do not
 try to get around it: use §13.4.
 
-**Enable the schedule only after one successful manual run.** In `.github/workflows/monthly-refresh.yml`, uncomment the three lines under
-`# schedule:` (10th, 20th and 28th at 13:50 UTC = 08:50 Lima), commit and push to `main`. Scheduled workflows run only from the default branch,
-three attempts a month are idempotent (a run that finds no new published month opens nothing), and GitHub pauses scheduled workflows after 60 days
-without repository activity. Until the first successful real run, the README keeps saying the refresh is "rolling out".
+**The schedule is on** (enabled 2026-10-07, after the first green full-chain run). The three `schedule:` lines in
+`.github/workflows/monthly-refresh.yml` fire on the 10th, 20th and 28th at 13:50 UTC = 08:50 Lima. Scheduled workflows run only from the default
+branch, three attempts a month are idempotent (a run that finds no new published month opens nothing), and GitHub pauses scheduled workflows after
+60 days without repository activity (a merged forecast PR counts as activity). To switch it off, comment the lines out again.
+
+Two things that are easy to trip over:
+
+- **Google Trends is opt-in in dbt.** Trends was closed as a negative result (D1 not adopted), so the production chain never needs
+  `raw.trends_observations`: the Trends models, their tests and the `gt_yape_plin` panel column exist only with
+  `dbt build --vars "{enable_trends: true}"`, after `load_trends` has filled that table. A default `dbt build` is 36 nodes.
+- **The forecast record names its source commit.** `git_sha` is the bare commit the run started from; `tree_dirty` and `tree_changes` say what
+  differed from it (a full run adds the new raw BCRP JSON before it forecasts, so `true` with only `data/raw/bcrp/...` is normal). Anything else in
+  that list is worth a look. The Google auth action writes `gha-creds-*.json` into the workspace; it is gitignored for this reason.
+
+Actions in the workflow (all on Node 24): `actions/checkout@v7`, `actions/setup-python@v7`, `google-github-actions/auth@v3`,
+`google-github-actions/setup-gcloud@v3`, `peter-evans/create-pull-request@v8`; the runner is pinned to `ubuntu-24.04`.
 
 ### 13.4 Fallback: run it on this machine (Windows Task Scheduler)
 
