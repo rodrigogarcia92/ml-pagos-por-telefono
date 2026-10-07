@@ -30,10 +30,10 @@ on:
   # Enable AFTER the first successful manual run (Actions -> Monthly refresh -> Run workflow).
   # BCRP publishes about once a month at no fixed day; three tries a month are idempotent, because
   # a run that finds no new published month opens nothing. Times are UTC (13:50 = 08:50 Lima).
-  # schedule:
-  #   - cron: "50 13 10 * *"
-  #   - cron: "50 13 20 * *"
-  #   - cron: "50 13 28 * *"
+  schedule:
+    - cron: "50 13 10 * *"
+    - cron: "50 13 20 * *"
+    - cron: "50 13 28 * *"
 
 permissions:
   contents: write

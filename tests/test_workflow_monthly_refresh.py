@@ -32,15 +32,12 @@ def test_it_parses_and_runs_on_ubuntu_with_python_311():
     assert DOC["name"] == "Monthly refresh"
 
 
-def test_only_manual_dispatch_is_active_and_the_schedule_is_written_but_commented_out():
+def test_manual_dispatch_and_the_three_monthly_attempts_are_active():
     on = _on()
-    assert set(on) == {"workflow_dispatch"}
+    assert set(on) == {"workflow_dispatch", "schedule"}
     inp = on["workflow_dispatch"]["inputs"]["skip_etl"]
     assert inp["type"] == "boolean" and inp["default"] is False
-    for cron in ('"50 13 10 * *"', '"50 13 20 * *"', '"50 13 28 * *"'):
-        assert f"  #   - cron: {cron}" in TEXT
-    assert "# schedule:" in TEXT and "AFTER the first successful manual run" in TEXT
-    assert "\n  schedule:" not in TEXT
+    assert on["schedule"] == [{"cron": "50 13 10 * *"}, {"cron": "50 13 20 * *"}, {"cron": "50 13 28 * *"}]
 
 
 def test_permissions_are_exactly_the_four_requested():
