@@ -19,15 +19,17 @@ So forecasting intrabank transfers is, in practice, forecasting the Yape and Pli
 >
 > **Result:** a machine learning ensemble with a **typical error of about 4.4%**, against **6.5%** for a simple trend line, **about a third less error**. This was measured on 41 realistic backtest forecasts (Mar 2022 – Jul 2025).
 >
+> **Confirmed on held-back data:** on the final 12 months (Aug 2025 – Jul 2026), tested once after the model was frozen, the ensemble's error was **2.8%** against **7.6%** for the trend line (MASE 0.213 vs 0.568).
+>
 > **Main drivers:** the calendar (working days, weekends, holidays), cash in circulation, and economic activity.
 >
-> **Status:** model selected. The final one-time test on held-back data is pending, and the monthly auto-refresh is rolling out (see [Roadmap](#9-roadmap)).
+> **Status:** the model is frozen and has passed its one-time final test on 12 months it had never seen (typical error 2.8% vs 7.6% for the trend line). The monthly auto-refresh is rolling out (see [Latest forecast](#latest-forecast) and [Roadmap](#9-roadmap)).
 
 | Aspect | Detail |
 |---|---|
 | **Problem type** | Time-series forecasting (regression on monthly growth) |
 | **Best model** | Ensemble of SVR + Random Forest + XGBoost (equal-weight average) |
-| **Validation** | Expanding-window backtesting, 41 folds, with a locked 12-month holdout |
+| **Validation** | Expanding-window backtesting (41 folds), then a one-time 12-month holdout: **passed** |
 | **Benchmarks** | 5 naive baselines; the hardest one, a simple trend line, is the bar to beat |
 | **Experiments** | ~200 tracked runs: 8 model families × 6 feature sets × 3 horizons |
 | **Rigor** | Pre-registered protocol, leakage guards enforced in code, ~180 offline tests in CI |
@@ -53,7 +55,7 @@ So forecasting intrabank transfers is, in practice, forecasting the Yape and Pli
 ![pytest](https://img.shields.io/badge/pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 
-**Serving (rolling out)**
+**Serving (planned)**
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Cloud Run](https://img.shields.io/badge/Cloud%20Run-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)
@@ -86,7 +88,7 @@ The model forecasts **total monthly transfer volume, 3 months ahead**, with an e
 
 | Who | Decision supported | How the forecast helps |
 |---|---|---|
-| **Bank treasury / liquidity teams** | How much liquidity to reserve for transfer settlement | Plan reserves around the expected volume, using the ±10% band as a buffer |
+| **Bank treasury / liquidity teams** | How much liquidity to reserve for transfer settlement | Plan reserves around the expected volume, using the forecast range (about −5% / +11% at 90%) as a buffer |
 | **Payment infrastructure** (bank IT, wallet operators, clearing houses) | Server, network and processing capacity | Scale capacity before peaks (December, mid-year bonuses, holidays) instead of reacting to outages |
 | **Operations and fraud teams** | Staffing for support and fraud monitoring | Fraud and support cases scale with transactions; staff ahead of high-volume months |
 | **Product and marketing** (wallets, banks, fintechs) | Campaign timing and growth targets | Set realistic targets and separate a campaign's effect from normal seasonal growth |
@@ -98,7 +100,7 @@ The model forecasts **total monthly transfer volume, 3 months ahead**, with an e
 
 ## 3. Results
 
-All results come from **backtesting** (see the glossary): the model was repeatedly asked to forecast months it had never seen, using only data that was public at the time. That gives 41 realistic forecasts, March 2022 – July 2025.
+Sections 3.1, 3.3 and 3.4 come from **backtesting** (see the glossary): the model was repeatedly asked to forecast months it had never seen, using only data that was public at the time. That gives 41 realistic forecasts, March 2022 – July 2025. Section 3.2 is the one-time final test on the last 12 months.
 
 ### 3.1 The best model vs a simple trend
 
@@ -116,7 +118,19 @@ The model is better on average, and the difference is statistically reliable: it
 
 *Top: actual transfers (black, millions per month), the model's forecast (blue) and a simple trend (orange). Each point was forecast 3 months earlier with only the data available then. Bottom: percentage error for each month.*
 
-### 3.2 What drives the forecast
+### 3.2 The final test: 12 months the model never saw
+
+After the model was chosen and frozen, it was tested **once** on the last 12 months of data (August 2025 – July 2026). Those months had been locked away from every decision. Which two forecasts to compare, and what would count as a pass, were written down before the test was run.
+
+| | Best model (ensemble) | Simple trend line |
+|---|---|---|
+| Typical error (MAPE) | **2.8%** | 7.6% |
+| MASE (lower is better) | **0.213** | 0.568 |
+
+The ensemble passed. Compared month by month, its advantage is about three standard errors wide (MASE −0.355 ± 0.109), so it is very unlikely to be luck. Nothing was re-tuned after the test.
+
+**Read with care:** 12 months is a small sample. The final-test error is lower than the backtest error (2.8% vs 4.4%). That is consistent with the backtest, not proof that the model improved, so the backtest figures remain the safer basis for planning.
+### 3.3 What drives the forecast
 
 ![Drivers: calendar first, then cash in circulation, economic activity and past transfers](docs/figures/fig3_drivers.png)
 
@@ -131,13 +145,29 @@ The model is better on average, and the difference is statistically reliable: it
 
 **The story in one sentence:** the model starts from the recent growth trend, then adjusts it for the calendar and for what cash and activity say about spending. What it cannot see are sudden shifts in how fast people adopt digital payments (2022, early 2024).
 
-### 3.3 Further ahead
+### 3.4 Further ahead
 
 | Forecast horizon | Typical error | Better than a trend line? |
 |---|---|---|
 | 3 months | 4.4% | **Yes**, clearly |
 | 5 months | 7.1% | Not reliably |
 | 6 months | 8.3% | Not reliably |
+
+### Latest forecast
+
+| | |
+|---|---|
+| Target month | October 2026 |
+| Point forecast | **1,274 million** transfers (1,273.6) |
+| 80% range | 1,227 – 1,405 million (about −4% / +10%) |
+| 90% range | 1,215 – 1,419 million (about −5% / +11%) |
+| Last observed month | July 2026: 1,154 million |
+| Data version | 20261005T000000Z |
+| Published | Not yet. The forecast is waiting in an open pull request (#1) |
+
+The forecasts are published automatically each month as a pull request. Once it is merged, the newest one is always in `forecasts/` and `forecasts/history.csv`.
+
+The range comes from the model's real backtest errors. It is wider on the upside because in fast-growth periods actual transfers came in above the forecast more often than below.
 
 ## 4. Key concepts (glossary)
 
@@ -218,7 +248,7 @@ Picking "the lowest number on the leaderboard" is not enough when many models ar
 **Decision:**
 - **Production candidate:** the ensemble on the production feature set.
 - **Simpler fallback:** SVR alone, statistically tied with the ensemble.
-- **Final exam:** the holdout compares exactly two forecasts, the ensemble vs the trend line. This was decided before running it.
+- **Final exam:** the holdout compared exactly two forecasts, the ensemble vs the trend line, under a rule fixed before running it. The ensemble passed (§3.2).
 
 ## 7. What did not work (and why that is useful)
 
@@ -233,8 +263,9 @@ Negative results save time and money: they show which data is not worth buying, 
 
 ## 8. Limitations
 
-- **The final test is pending.** All numbers so far are from backtesting. The one-time holdout test still has to confirm them.
-- **Adoption shocks.** Sudden changes in adoption speed (2022, early 2024) cause the largest misses, up to 19%. Plan with a ±10% band, which covers about 9 in 10 months.
+- **A small final test.** The holdout has only 12 months. It confirmed the backtest result, but its lower error should not be read as a better model; plan with the backtest figures.
+- **Forecasts tend to land low when growth speeds up.** In backtesting the actual value came in above the forecast more often than below, so the published range is skewed upward.
+- **Adoption shocks.** Sudden changes in adoption speed (2022, early 2024) cause the largest misses, up to 19%. Plan with the 90% range (about −5% / +11%), which covers about 9 in 10 months.
 - **A proxy, not the wallets themselves.** The model forecasts all intrabank transfers. Yape and Plin are 83% of them and move almost identically, but the remaining 17% (in-app bank transfers) is included.
 - **Public data only.** A bank with its own daily data could do considerably better. This project shows what is possible from BCRP alone.
 - **Volume, not value.** The model forecasts the number of transfers, not soles transferred.
@@ -246,9 +277,9 @@ Negative results save time and money: they show which data is not worth buying, 
 | Data pipeline: BCRP API → BigQuery → dbt, with data tests | ✅ Live |
 | Experiment tracking and model comparison (MLflow) | ✅ Live |
 | 3-month forecasting model, selected under a pre-registered protocol | ✅ Done |
+| One-time holdout test (ensemble vs trend line) | ✅ Done: passed (MASE 0.213 vs 0.568) |
 | **Monthly auto-refresh**: a scheduled GitHub Actions job pulls each new BCRP release, rebuilds the warehouse, re-scores the model and publishes the next forecast | 🚧 **Rolling out (October 2026)** |
 | **Drift alert**: flags the forecast when it misses by more than 10% two months in a row | 🚧 **Rolling out (October 2026)** |
-| One-time holdout test (ensemble vs trend line) | ⏳ Next |
 | Forecast API: FastAPI → Docker → Google Cloud Run | 📅 Planned |
 | Transfer-learning model across the long aggregate series for a Yape/Plin split | 📅 Planned |
 | Forecasting transfer **value** (soles) and wallet market share | 📅 Planned |
