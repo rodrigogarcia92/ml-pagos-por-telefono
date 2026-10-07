@@ -250,19 +250,20 @@ def test_s1b_expands_to_15_naive_parents_under_protocol_17():
     assert len({(r.target_id, r.model_family) for r in runs}) == 15
 
 
-def test_s5_expands_to_24_parents_three_targets_four_families_two_sets():
+def test_s5_expands_to_12_parents_three_targets_four_families_fs3_only():
+    # Trends gate G1/G3 FAILED (plan 9.2, 2026-10-06): FS3_gt is not swept; the code stays.
     spec, runs = _expand("s5_trends_ens.yaml")
     assert spec["protocol_version"] == "1.7"
-    assert len(runs) == 24
-    assert len({(r.target_id, r.model_family, r.feature_set) for r in runs}) == 24
+    assert len(runs) == 12
+    assert len({(r.target_id, r.model_family, r.feature_set) for r in runs}) == 12
     assert {(r.target_id, r.horizon) for r in runs} == {("t3", 3), ("t10", 5), ("t11", 6)}
     assert {r.model_family for r in runs} == {"svr_rbf", "rf", "xgboost", "ens3"}
-    assert {r.feature_set for r in runs} == {"FS3_activity", "FS3_gt"}
+    assert {r.feature_set for r in runs} == {"FS3_activity"}
     assert {r.window for r in runs} == {"w2019"} and {r.protocol_version for r in runs} == {"1.7"}
-    # every cell of the 3 x 4 x 2 design, once
-    assert {(t, m, f) for t in ("t3", "t10", "t11") for m in ("svr_rbf", "rf", "xgboost", "ens3")
-            for f in ("FS3_activity", "FS3_gt")} == {(r.target_id, r.model_family, r.feature_set)
-                                                     for r in runs}
+    # every cell of the 3 x 4 design, once
+    assert {(t, m, "FS3_activity") for t in ("t3", "t10", "t11")
+            for m in ("svr_rbf", "rf", "xgboost", "ens3")} == {
+        (r.target_id, r.model_family, r.feature_set) for r in runs}
 
 
 def test_mlflow_experiment_names_and_run_names_of_the_new_sweeps():
@@ -273,7 +274,7 @@ def test_mlflow_experiment_names_and_run_names_of_the_new_sweeps():
     assert exps == {f"{tracking.EXPERIMENT_PREFIX}t3_h3", f"{tracking.EXPERIMENT_PREFIX}t10_h5",
                     f"{tracking.EXPERIMENT_PREFIX}t11_h6"}
     names = {context_for(r, snap).run_name for r in s5}
-    assert "ens3__FS3_gt__w2019" in names and "svr_rbf__FS3_activity__w2019" in names
+    assert "ens3__FS3_activity__w2019" in names and "svr_rbf__FS3_activity__w2019" in names
 
 
 def test_a_17_target_in_a_spec_without_the_protocol_key_is_refused():
