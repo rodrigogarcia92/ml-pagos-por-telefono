@@ -21,11 +21,12 @@ import os
 import re
 import subprocess
 from contextlib import contextmanager
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
 
-import mlflow
 from dotenv import load_dotenv
+
+import mlflow
 
 # MLFLOW_TRACKING_URI comes from .env — never hardcoded, so the same code runs
 # against a local server now and a remote one later without an edit.

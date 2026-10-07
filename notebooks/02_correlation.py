@@ -126,7 +126,7 @@ specs = [
     ("n_dinero_electronico", "Dinero electrónico", PALETTE[1]),
 ]
 
-for ax, (col, label, color) in zip(axes, specs):
+for ax, (col, label, color) in zip(axes, specs, strict=False):
     ax.plot(hist.index, hist[col], color=color, linewidth=2)
     ax.set_ylabel("Millones de operaciones", fontsize=10, color=INK)
     ax.set_title(label, fontsize=12, loc="left", color=INK, pad=8)
@@ -257,7 +257,7 @@ print("--- Correlation of n_yape_plin growth with lagged aggregate growth ---")
 print(lead_lag.round(2).to_string())
 
 fig, ax = plt.subplots(figsize=(10, 5.5))
-for color, col in zip(PALETTE, AGGREGATES):
+for color, col in zip(PALETTE, AGGREGATES, strict=False):
     ax.plot(lead_lag.index, lead_lag[col], marker="o", markersize=7,
             linewidth=2, color=color, label=col)
     ax.annotate(col, xy=(lead_lag.index[-1], lead_lag[col].iloc[-1]),

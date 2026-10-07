@@ -33,6 +33,7 @@ The three stages (docs/training_plan.md 7.3):
 from __future__ import annotations
 
 import argparse
+import contextlib
 import itertools
 import json
 import tempfile
@@ -43,13 +44,13 @@ import matplotlib
 
 matplotlib.use("Agg")  # no display on a headless sweep
 import matplotlib.pyplot as plt
-import mlflow
 import numpy as np
 import pandas as pd
 import yaml
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 
+import mlflow
 from src.model_training import dataset, metrics, registry, splits, tracking
 from src.model_training.snapshot import latest_snapshot
 
@@ -92,7 +93,7 @@ PROTOCOL_17_ONLY = {
 }
 
 
-def check_protocol(cfg: "RunConfig") -> None:
+def check_protocol(cfg: RunConfig) -> None:
     """Refuse a configuration that uses a 1.7 feature under a 1.6 tag."""
     if cfg.protocol_version == tracking.PROTOCOL_VERSION:
         return
@@ -494,7 +495,7 @@ def log_config(fit: FitResult) -> RunResult:
         # WHICH rows this run saw -- name, digest, and the snapshot path as
         # source -- so two runs claiming the same data_version can be shown to
         # have used the same frame rather than merely asserting it.
-        try:
+        with contextlib.suppress(Exception):  # provenance nicety, never worth failing a run
             mlflow.log_input(
                 mlflow.data.from_pandas(
                     frame.X.assign(y=frame.y),
@@ -504,8 +505,6 @@ def log_config(fit: FitResult) -> RunResult:
                 ),
                 context="cv" if cfg.stage == "cv" else "holdout",
             )
-        except Exception:  # noqa: BLE001 -- provenance nicety, never worth failing a run
-            pass
 
         for f, m in zip(fit.eval_folds, fit.per_fold, strict=True):
             with tracking.fold_run(f.index):

@@ -199,7 +199,7 @@ class Frame:
     # train.fit_config asserts it. Empty for every other family.
     alt_encodings: dict | None = None
 
-    def for_encoding(self, encoding: str) -> "Frame":
+    def for_encoding(self, encoding: str) -> Frame:
         """This frame's design matrix in `encoding` (itself, or the stored alternative)."""
         if encoding == self.encoding:
             return self

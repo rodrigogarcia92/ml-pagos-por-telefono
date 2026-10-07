@@ -134,13 +134,13 @@ def test_t3_feature_sets_strictly_nested():
     fs = load_feature_sets()
     chain = ["FS0_calendar", "FS1_autoregressive", "FS2_cash",
              "FS3_activity", "FS4_prices", "FS5_macro_full", "FS5b_stance"]
-    for a, b in zip(chain, chain[1:]):
+    for a, b in zip(chain, chain[1:], strict=False):
         assert set(fs[a]) < set(fs[b]), f"{a} is not a strict subset of {b}"
     for name, cols in fs.items():
         assert len(cols) == len(set(cols)), f"{name} has duplicate columns"
 
     short = ["FS0_short", "FS1_short", "FS2_short"]
-    for a, b in zip(short, short[1:]):
+    for a, b in zip(short, short[1:], strict=False):
         assert set(fs[a]) < set(fs[b])
     # The _short variants exist to remove the 12-month terms. If one sneaks back
     # in, w2024 silently loses 43% of its rows.
@@ -360,8 +360,10 @@ def test_holdout_folds_are_expanding_and_purged(h):
 
 
 def test_s2_spec_expands_to_the_planned_66_parents():
-    import yaml
     from pathlib import Path
+
+    import yaml
+
     from src.model_training import sweep
 
     spec = yaml.safe_load(Path("configs/sweeps/s2_proxy_grid.yaml").read_text(encoding="utf-8"))
@@ -374,8 +376,10 @@ def test_s2_spec_expands_to_the_planned_66_parents():
 
 
 def test_naive_models_run_once_regardless_of_feature_sets():
-    import yaml
     from pathlib import Path
+
+    import yaml
+
     from src.model_training import sweep
 
     spec = yaml.safe_load(Path("configs/sweeps/s1_baselines.yaml").read_text(encoding="utf-8"))
@@ -453,7 +457,7 @@ def production_like(synthetic):
     p = panel.reindex(idx)
     p.loc["2026-07-01":, "n_transf_intra_agg"] = np.nan
     # kappa=0/1 series are observed through the panel edge; kappa=2 ones lag it.
-    for col, k in meta["kappa"].items():
+    for col, _k in meta["kappa"].items():
         if col != "n_transf_intra_agg":
             p[col] = p[col].ffill()
     return p, meta
@@ -528,8 +532,10 @@ def test_last_published_month_is_a_target_row(production_like, h):
 def test_protocol_version_is_1_7_and_the_legacy_specs_stay_1_6():
     """Protocol 1.7 is the current one; s0-s4 carry no `protocol_version` key and must keep
     producing 1.6 runs (they are not edited). See test_protocol_17.py for the 1.7 sweeps."""
-    import yaml
     from pathlib import Path
+
+    import yaml
+
     from src.model_training import sweep, tracking
 
     assert tracking.PROTOCOL_VERSION == "1.7"
@@ -767,7 +773,7 @@ def test_report_shows_the_evaluation_status_column(local_mlflow, wallet_panel):
                    tune={"alpha": [1.0, 10.0]}), local_mlflow)
     df = report.fetch("t5", 3)
     assert "evaluation_status" in df.columns
-    got = dict(zip(df["model_family"], zip(df["n_folds"], df["evaluation_status"])))
+    got = dict(zip(df["model_family"], zip(df["n_folds"], df["evaluation_status"], strict=False), strict=False))
     assert got == {"naive_drift": (8, "evaluation"), "ridge": (5, "demonstration")}
 
 
@@ -905,8 +911,10 @@ def test_seas_transfer_runs_log_their_factor_source_and_cutoff(local_mlflow, wal
 # s4_wallet -- spec, reduced w2024 grids, feasibility of every configuration
 # --------------------------------------------------------------------------- #
 def _s4_runs():
-    import yaml
     from pathlib import Path
+
+    import yaml
+
     from src.model_training import sweep
 
     spec = yaml.safe_load(Path("configs/sweeps/s4_wallet.yaml").read_text(encoding="utf-8"))
@@ -938,6 +946,7 @@ def test_s4_spec_expands_to_the_reconciled_30_parents():
 
 def test_w2024_grids_are_reduced_and_the_proxy_grids_are_untouched():
     import math
+
     from src.model_training import registry
 
     size = lambda g: math.prod(len(v) for v in g.values())          # noqa: E731

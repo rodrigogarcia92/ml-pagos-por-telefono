@@ -16,11 +16,12 @@ MLflow 3.x: models are logged with `name=`, and promotion uses registry ALIASES
 import tempfile
 from pathlib import Path
 
-import mlflow
 import numpy as np
 from dotenv import load_dotenv
-from mlflow import MlflowClient
 from sklearn.linear_model import Ridge
+
+import mlflow
+from mlflow import MlflowClient
 
 load_dotenv()
 

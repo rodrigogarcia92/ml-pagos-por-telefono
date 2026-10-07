@@ -91,7 +91,7 @@ def fetch(target: str, horizon: int, stage: str = "cv",
     # The tag is set by tracking.parent_run. A run logged before it existed has
     # none; derive it from the fold count with the same rule rather than leave a
     # demonstration unlabelled (training_plan.md 6.4 rule 4).
-    status = runs["tags.evaluation_status"] if "tags.evaluation_status" in runs else None
+    status = runs.get("tags.evaluation_status")
     derived = n_folds.map(tracking.evaluation_status)
     out = pd.DataFrame({
         "model_family": runs["tags.model_family"],

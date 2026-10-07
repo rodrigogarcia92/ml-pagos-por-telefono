@@ -17,12 +17,12 @@ import yaml
 from src.model_training import registry, sweep, tracking
 from src.model_training.train import (
     RunConfig,
+    _score_fold,
+    _tune,
     check_protocol,
     context_for,
     fit_config,
     hyperparameter_params,
-    _score_fold,
-    _tune,
 )
 
 SPECS = Path("configs/sweeps")

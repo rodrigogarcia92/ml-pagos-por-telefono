@@ -21,7 +21,6 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
-import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Ridge
 from sklearn.svm import SVR

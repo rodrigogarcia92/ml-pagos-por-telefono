@@ -20,7 +20,6 @@ from pathlib import Path
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 from statsmodels.nonparametric.smoothers_lowess import lowess

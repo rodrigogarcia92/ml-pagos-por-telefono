@@ -92,7 +92,7 @@ def member_params(con: sqlite3.Connection, parents: pd.DataFrame) -> dict[str, d
 
 
 def fold_mase(con: sqlite3.Connection, parents: pd.DataFrame) -> pd.DataFrame:
-    want = parents[[ (f, s) in CANDIDATES for f, s in zip(parents.model_family, parents.feature_set)]]
+    want = parents[[ (f, s) in CANDIDATES for f, s in zip(parents.model_family, parents.feature_set, strict=False)]]
     ids = tuple(want.index) + ("",)
     ch = pd.read_sql(
         "select p.run_uuid child, p.value parent, n.value name from tags p "
@@ -228,7 +228,7 @@ def fig_drivers(imp: pd.DataFrame, out: Path):
     fig, a = plt.subplots(figsize=(10, 3.8))
     a.barh(imp.block, imp.pct, xerr=imp.se, color=BLUE, height=.5,
            error_kw=dict(ecolor=MUTED, lw=1, capsize=3))
-    for y, (v, s) in enumerate(zip(imp.pct, imp.se)):
+    for y, (v, s) in enumerate(zip(imp.pct, imp.se, strict=False)):
         a.text(v + s + 2, y, f"+{v:.0f}%", va="center", fontsize=9, color=INK)
     a.set_xlabel("Extra forecast error if this block is scrambled (% of the ensemble's error)")
     a.set_xlim(0, max(100, float((imp.pct + imp.se).max()) + 15))
