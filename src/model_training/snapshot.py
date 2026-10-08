@@ -8,7 +8,7 @@ Writes two files into data/processed/:
     series_meta_{data_version}.csv    col_name, category, kappa, transform, coverage
 
 `data_version` is MAX(pulled_at) from raw.bcrp_observations and IS the filename,
-so no run can claim a data version it did not load (docs/training_plan.md 4.0).
+so no run can claim a data version it did not load (plan 4.0).
 
 Why a snapshot at all, when the warehouse is right there:
 
@@ -52,7 +52,7 @@ def compose_version(bcrp_version: str, trends_pull_ids: list[str]) -> str:
     panel: a new Trends pull, or a different `trends_pull_id`, changes gt_yape_plin
     without changing MAX(pulled_at). Same filename, different data -- and the 1.6
     snapshot `panel_20261005T000000Z` is referenced by logged runs, which must never
-    be overwritten (training_plan.md 4.0 rule 3). Exactly one pull may feed the panel
+    be overwritten (plan 4.0 rule 3). Exactly one pull may feed the panel
     (the single-pull rule); more than one is refused here as well as in dbt.
     """
     if not trends_pull_ids:
@@ -109,7 +109,7 @@ def build(client) -> tuple[str, pd.DataFrame, pd.DataFrame]:
         ) from e
 
     # kappa and transform come from config.py, NOT from the warehouse: they are
-    # declared assumptions, not facts computed from data (training_plan.md 4.1).
+    # declared assumptions, not facts computed from data (plan 4.1).
     # Coverage is the opposite, which is why it IS a dbt model.
     meta = coverage.assign(
         kappa=coverage["col_name"].map(KAPPA_BY_COL),

@@ -12,7 +12,7 @@ python-dotenv
 pandas
 numpy
 pyarrow                     # BigQuery load/read path + parquet in data/interim
-                            # ALSO: the training snapshot (training_plan.md §4.0)
+                            # ALSO: the training snapshot (plan §4.0)
 
 # --- BigQuery ---
 google-cloud-bigquery

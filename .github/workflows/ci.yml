@@ -3,7 +3,7 @@ name: CI
 # Runs the offline test suite on every push and pull request.
 #
 # The tests use a synthetic panel -- no BigQuery, no BCRP API, no MLflow server,
-# no credentials. That is deliberate (training_plan.md 4.0: dataset.py takes a
+# no credentials. That is deliberate (plan 4.0: dataset.py takes a
 # snapshot path, never a connection), and it is what lets CI exist without any
 # secret. Do NOT add a step that needs Google credentials to this workflow.
 #

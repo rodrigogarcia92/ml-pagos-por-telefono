@@ -2,7 +2,7 @@
 
 Models are fitted on z = log n_{t+h-1} - log n_{t-1}. Every metric here first
 undoes that. A metric on the differenced scale is not comparable to the naive
-baselines and means nothing to a business reader (docs/training_plan.md 1.2).
+baselines and means nothing to a business reader (plan 1.2).
 
 Why the two unfamiliar ones exist: the target grows about 75x across the sample,
 so an MAE of two million operations is a catastrophe in 2019 and a rounding
@@ -25,7 +25,7 @@ def mase_period(min_train: int) -> int:
     at the very least). The first outer fold of a window has exactly `min_train`
     of them, so a window whose min_train is <= 12 cannot be scaled seasonally at
     all: every one of its configurations would raise on fold 0. That is w2024
-    (min_train = 12); training_plan.md 6.2 had called 12 "the floor at which the
+    (min_train = 12); plan 6.2 had called 12 "the floor at which the
     denominator is computable" -- it is the floor minus one (O-12, section 11).
 
     Such windows fall back to m = 1, the in-sample MAE of the random walk: defined
@@ -39,7 +39,7 @@ def mase_period(min_train: int) -> int:
 
 
 def reconstruct(anchor: np.ndarray, z_hat: np.ndarray) -> np.ndarray:
-    """n_hat_{t+h-1} = n_{t-1} * exp(z_hat).  training_plan.md 1.2."""
+    """n_hat_{t+h-1} = n_{t-1} * exp(z_hat).  plan 1.2."""
     return np.asarray(anchor, dtype=float) * np.exp(np.asarray(z_hat, dtype=float))
 
 
@@ -93,7 +93,7 @@ def mase(
 
     0.7 = 30% better than "same month last year". 1.0 = no better. 1.4 = worse.
 
-    NOTE the deliberate compromise (training_plan.md 6.3): the denominator is
+    NOTE the deliberate compromise (plan 6.3): the denominator is
     fixed at m=12 for BOTH horizons, so h=1 and h=3 MASE are directly
     comparable -- at the cost that MASE < 1 no longer literally means "beats
     naive at this horizon". skill_h below is the metric that does mean that.
@@ -106,7 +106,7 @@ def skill(y: np.ndarray, yhat: np.ndarray, y_seasonal: np.ndarray) -> float:
 
     0.25 = cut the naive forecast's error by a quarter. 0 = tied.
     NEGATIVE = worse than doing nothing, which gets reported as a finding
-    rather than quietly dropped (training_plan.md 6.4 rule 2).
+    rather than quietly dropped (plan 6.4 rule 2).
     """
     denom = mae(y, y_seasonal)
     if denom == 0 or not np.isfinite(denom):

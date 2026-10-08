@@ -7,7 +7,7 @@
 #
 # Column counts are the TREE representation (cal_month as one integer). The
 # linear representation replaces cal_month with 11 dummies, so add 10.
-# See docs/training_plan.md 4.4 and 5.
+# See plan 4.4 and 5.
 
 FS0_calendar: &fs0                      # 6 tree / 16 linear
   - cal_days
@@ -53,7 +53,7 @@ FS5b_stance:                            # 55 -- impulse vs stance
 # --- w2024 only. A t-13 history requirement costs 43% of a 30-month window,
 # --- which is the difference between 8 usable folds and none. Dropping the
 # --- 12-month terms is also what makes the seasonal-transfer test a real
-# --- comparison rather than a redundant one (training_plan.md 5.1).
+# --- comparison rather than a redundant one (plan 5.1).
 FS0_short: *fs0
 FS1_short: &fs1short
   - *fs0
@@ -63,7 +63,7 @@ FS2_short: &fs2short
   - [y_d2, y_d3, y_ma3]
   - [circ_d1, circ_d2, circ_d3, circ_ma3]
 
-# --- The seasonal-transfer test (training_plan.md 5.2, pre-registered 2026-10-05).
+# --- The seasonal-transfer test (plan 5.2, pre-registered 2026-10-05).
 # --- seas_transfer = month-of-year factors measured on the AGGREGATE series before
 # --- 2024-01, indexed at the target month. Each set is its parent plus that ONE
 # --- column, so the delta between the pair is attributable to it. w2024 only:
@@ -75,7 +75,7 @@ FS2s_short:                             # 14 -- FS2_short + seas_transfer
   - *fs2short
   - [seas_transfer]
 
-# --- Protocol 1.7: the Google Trends test (training_plan.md 4.5, 5.4). -----------
+# --- Protocol 1.7: the Google Trends test (plan 4.5, 5.4). -----------
 # --- FS3_gt = FS3_activity + the three gt_* columns. FS3 stays unchanged as the
 # --- control, so the delta between the pair is attributable to the Trends block,
 # --- and FS3 is a strict subset of FS3_gt (asserted by test T10).

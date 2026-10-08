@@ -1,6 +1,6 @@
 {{ config(enabled=var('enable_trends', false)) }}
 
--- T8 (training_plan.md 9.2), part 2. Every gt_yape_plin value in marts.monthly_panel
+-- T8 (plan 9.2), part 2. Every gt_yape_plin value in marts.monthly_panel
 -- must be the value stg_trends holds for that month, i.e. come from the one pull.
 -- Returns a row (= failure) for any month where the panel and stg_trends disagree,
 -- including a panel month with a Trends value that stg_trends does not have and a

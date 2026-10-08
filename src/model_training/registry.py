@@ -27,7 +27,7 @@ from sklearn.svm import SVR
 from xgboost import XGBRegressor
 
 # --------------------------------------------------------------------------- #
-# Naive family -- the floor (training_plan.md 3, Target 1)
+# Naive family -- the floor (plan 3, Target 1)
 # --------------------------------------------------------------------------- #
 
 
@@ -98,7 +98,7 @@ class NaiveCalendar(_Naive):
     February has ~10.7% fewer days than March. In a transaction count that is a
     mechanical swing with zero economic content, and adjusting for it is free.
     If a tuned gradient-boosted model cannot beat this, that IS the headline
-    finding and it gets reported as such (training_plan.md 6.4 rule 2).
+    finding and it gets reported as such (plan 6.4 rule 2).
     """
 
     def predict(self, X, ctx):
@@ -131,7 +131,7 @@ class SklearnAdapter:
 
 
 class EnsembleAdapter:
-    """Equal-weight mean of the members' z-forecasts (training_plan.md 7.4, `ens3`).
+    """Equal-weight mean of the members' z-forecasts (plan 7.4, `ens3`).
 
     A model FAMILY, not post-processing: it is tagged, resumed and ranked like any
     other. Each member keeps its OWN encoding of the same feature set (the SVR gets
@@ -169,7 +169,7 @@ class EnsembleAdapter:
 class SarimaxAdapter:
     """SARIMAX on the differenced target z, with the feature set as exogenous input.
 
-    The econometrician's model (training_plan.md 7.1). z is ALREADY a log
+    The econometrician's model (plan 7.1). z is ALREADY a log
     difference, so d = 0 (7.2 grid) and the seasonal difference D in {0, 1} is the
     only differencing left to choose.
 
@@ -215,7 +215,7 @@ class SarimaxAdapter:
         return fc[-len(X):]
 
 
-# SARIMAX exogenous columns, fixed before any SARIMAX run (training_plan.md 11).
+# SARIMAX exogenous columns, fixed before any SARIMAX run (plan 11).
 # The plan says "exog capped at 8 columns" without saying which 8. Rule:
 #   * drop y_*       -- own history is the ARMA terms' job, and tuning p, q is how
 #                       the persistence ablation (FS0 -> FS1) is expressed here;
@@ -302,7 +302,7 @@ MODELS: dict[str, tuple] = {
     ),
 }
 
-# `ens3` (training_plan.md 7.4): the members, in the order they are listed everywhere
+# `ens3` (plan 7.4): the members, in the order they are listed everywhere
 # (tuning table, member_* params, member_z_). Each member is tuned in its own Stage A.
 ENSEMBLES: dict[str, tuple[str, ...]] = {"ens3": ("svr_rbf", "rf", "xgboost")}
 
@@ -336,7 +336,7 @@ def default_grid(model_family: str) -> dict:
     return MODELS[model_family][1]
 
 
-# w2024 search spaces (training_plan.md 7.2 row 13). The wallet window has 18-22
+# w2024 search spaces (plan 7.2 row 13). The wallet window has 18-22
 # CV rows and its Stage A has 4-8 inner folds, so the full grids (xgboost: 288
 # candidates, ridge: 13 alphas) would pick a winner from noise and spend most of
 # their evaluations differentiating configurations the data cannot tell apart.

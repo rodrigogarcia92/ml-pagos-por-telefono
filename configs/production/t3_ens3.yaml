@@ -2,7 +2,7 @@
 # Written by scripts/freeze_production.py -- do not edit by hand; regenerate and re-record.
 # Hyperparameters are READ from the MLflow run below (Stage A on the CV period, protocol 1.7),
 # the error band is computed on CV folds only. Selection record and the pre-registered holdout
-# rule: docs/training_plan.md section 11, marker "PRODUCTION-FREEZE t3_ens3 v1".
+# rule: docs/methodology.md (decision log), marker "PRODUCTION-FREEZE t3_ens3 v1".
 target_id: t3
 horizon: 3
 kappa: 2
@@ -60,7 +60,7 @@ mlflow_run_id: 2e96c211d1fa4849a18ec3da0f61949b
 data_version: 20261005T000000Z
 protocol_version: '1.7'
 selected_on: cv
-selection_record: docs/training_plan.md section 11, marker 'PRODUCTION-FREEZE t3_ens3
+selection_record: docs/methodology.md (decision log), marker 'PRODUCTION-FREEZE t3_ens3
   v1'
 cv_mase_mean: 0.26495101891101097
 error_band:

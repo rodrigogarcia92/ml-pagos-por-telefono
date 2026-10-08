@@ -1,5 +1,5 @@
 # s5_trends_ens -- the ens3 ensemble on FS3_activity only. 12 parents, Stage A + B.
-# training_plan.md section 7.4 (ens3, P3-P4, D2), 9.2 step 6.
+# plan section 7.4 (ens3, P3-P4, D2), 9.2 step 6.
 #
 # The Google Trends test is CLOSED AS A NEGATIVE RESULT (plan 9.2, O-14, section 11 2026-10-06):
 # G1 FAIL and G3 FAIL on the 2026-10-05 pull, CV period only. FS3_gt, the gt_* features and the

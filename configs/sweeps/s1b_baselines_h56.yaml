@@ -1,5 +1,5 @@
 # s1b_baselines_h56 -- protocol 1.7 naive floor at the quarter-ahead horizons. 15 parents.
-# training_plan.md section 7.4 (grid), 9.2 step 5, execution order.
+# plan section 7.4 (grid), 9.2 step 5, execution order.
 #
 #   5 naive variants x 3 targets (t3 = h3, t10 = h5, t11 = h6) x w2019   = 15
 #

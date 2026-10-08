@@ -231,7 +231,7 @@ def test_the_real_run_logs_two_holdout_parents_once_and_never_twice(
     assert pd.isna(drift["params.hp_source"])             # Stage A on the CV rows, nothing frozen
 
     assert "HOLDOUT RESULT" in out and "paired per-month difference" in out
-    assert "Paste into docs/training_plan.md section 11" in out and "Paste into README.md" in out
+    assert "Paste into docs/methodology.md (decision log)" in out and "Paste into README.md" in out
     assert "2025-08 .. 2026-07" in out and "VERDICT" in out
 
     # the second attempt is refused by guard (c) and starts nothing

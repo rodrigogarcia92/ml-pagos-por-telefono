@@ -18,7 +18,7 @@ cannot leave a half-written run behind, because it never held a handle to one.
 functions rather than spawning subprocesses -- which is also what makes the
 Vertex demo at roadmap step 14 a config change rather than a refactor.
 
-The three stages (docs/training_plan.md 7.3):
+The three stages (plan 7.3):
 
   A  tune     inner expanding CV INSIDE THE CV PERIOD (never the holdout).
               Creates NO MLflow runs; the whole search is logged as
@@ -59,7 +59,7 @@ HOLDOUT_MONTHS = {"w2019": 12, "w2021": 12, "w2024": 6}
 SEED = 26
 
 # Fold counts below this are demonstrations, not evaluations
-# (training_plan.md 6.4 rule 4). Defined in tracking.py, which owns the tag.
+# (plan 6.4 rule 4). Defined in tracking.py, which owns the tag.
 MIN_EVALUATION_FOLDS = tracking.MIN_EVALUATION_FOLDS
 
 
@@ -84,7 +84,7 @@ class RunConfig:
     frozen_source: str = ""             # label logged as param hp_source, e.g. "frozen:ab12cd34ef56"
 
 
-# What exists only from protocol 1.7 on (training_plan.md 3, 5.4, 7.4). A 1.6 run asking
+# What exists only from protocol 1.7 on (plan 3, 5.4, 7.4). A 1.6 run asking
 # for one of these is a mislabelled run -- refused rather than tagged "1.6".
 PROTOCOL_17_ONLY = {
     "target_id": {"t10", "t11"},
@@ -198,7 +198,7 @@ def _score_fold(model, frame, tr, te) -> tuple[dict, np.ndarray]:
         raise ValueError(
             f"{frame.window}: seasonal reference missing at test origin "
             f"{[f'{d:%Y-%m}' for d in ctx_te.index[ctx_te['seas_level'].isna()]]}. "
-            "Refusing to score it as NaN (training_plan.md 6.4 rule 2, O-12)."
+            "Refusing to score it as NaN (plan 6.4 rule 2, O-12)."
         )
     scale_m = metrics.mase_period(splits.MIN_TRAIN[frame.window])
 
@@ -226,7 +226,7 @@ def _score_fold(model, frame, tr, te) -> tuple[dict, np.ndarray]:
         model.fit(Xtr_s, ytr, None)
         z_hat = model.predict(Xte_s, {"X_gap": gap_s} if getattr(model, "wants_gap", False) else None)
 
-    # Everything below is on LEVELS. Never score on z (training_plan.md 1.2).
+    # Everything below is on LEVELS. Never score on z (plan 1.2).
     yhat = metrics.reconstruct(ctx_te["anchor"].to_numpy(), z_hat)
     m = metrics.all_metrics(
         ctx_te["y_level"].to_numpy(),
@@ -271,7 +271,7 @@ def _tune(frame, cfg, n_cv) -> tuple[dict, pd.DataFrame]:
     Returns the winning parameters and the complete search as a table. The table
     is logged as one artifact; the ~35k individual fits are not logged at all,
     because MLflow run creation would cost one to two orders of magnitude more
-    than the modelling itself (training_plan.md 8.0).
+    than the modelling itself (plan 8.0).
 
     HISTORY. The first version took the training portion of the FIRST outer fold,
     which has exactly `min_train` rows, so the inner-fold generator returned
@@ -452,7 +452,7 @@ def log_config(fit: FitResult) -> RunResult:
     note = None
     if n_folds < MIN_EVALUATION_FOLDS:
         note = (f"DEMONSTRATION, NOT AN EVALUATION: {n_folds} outer folds "
-                f"(< {MIN_EVALUATION_FOLDS}). training_plan.md 6.4 rule 4.")
+                f"(< {MIN_EVALUATION_FOLDS}). plan 6.4 rule 4.")
 
     with tracking.parent_run(ctx, description=note, n_folds=n_folds) as parent:
         mlflow.log_params({

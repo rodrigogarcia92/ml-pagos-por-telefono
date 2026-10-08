@@ -1,7 +1,7 @@
 """MLflow tag and experiment vocabulary — the ONLY module that talks to MLflow's
 configuration or sets tags.
 
-Why one module: `training_plan.md` §8 mandates ten tags on every run. Ten tags set
+Why one module: `plan` §8 mandates ten tags on every run. Ten tags set
 by hand across six model modules will drift within a week, and a sweep with
 inconsistent tags cannot be queried — which makes the whole experiment record
 worth less than the runs that produced it.
@@ -12,7 +12,7 @@ Nothing else in `src/model_training/` may call `mlflow.set_tag`,
 MLflow version note: this project runs MLflow 3.x, where model *stages*
 (Staging/Production) are gone and the Registry uses **aliases**. Promotion is
 `set_registered_model_alias(name, "production", version)` and loading is
-`models:/{name}@production`. See docs/mlflow_setup.md §7.
+`models:/{name}@production`.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ load_dotenv()
 # run() returns the run_id and every run is one click away in the UI.
 os.environ.setdefault("MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", "true")
 
-# docs/training_plan.md. Part of the resume key (already_done), so bumping it
+# plan. Part of the resume key (already_done), so bumping it
 # makes every earlier run invisible to a sweep -- on purpose: runs made under a
 # different protocol are not comparable and must not satisfy "already done".
 PROTOCOL_VERSION = "1.7"
@@ -47,12 +47,13 @@ PROTOCOL_VERSION = "1.7"
 # spec without one means THIS (sweep.py). Protocol 1.7 sweeps say so explicitly.
 LEGACY_PROTOCOL_VERSION = "1.6"
 KNOWN_PROTOCOLS = (LEGACY_PROTOCOL_VERSION, PROTOCOL_VERSION)
+# "26.1__" is a historical prefix, kept so the existing run history stays reachable.
 EXPERIMENT_PREFIX = os.getenv("MLFLOW_EXPERIMENT_PREFIX", "26.1__")
 
 _SNAPSHOT_RE = re.compile(r"panel_(?P<version>.+)\.parquet$")
 
 # Fewer outer folds than this is a demonstration, not an evaluation
-# (training_plan.md 6.4 rule 4). Lives here, not in train.py, because the tag
+# (plan 6.4 rule 4). Lives here, not in train.py, because the tag
 # vocabulary lives here and train.py imports this module (not the other way round).
 MIN_EVALUATION_FOLDS = 8
 
@@ -109,7 +110,7 @@ def git_tree_state(cwd: str | Path | None = None, max_paths: int = 20) -> dict:
 
 
 def data_version(snapshot_path: str | Path) -> str:
-    """Read the data version out of the snapshot filename (training_plan.md §4.0).
+    """Read the data version out of the snapshot filename (plan §4.0).
 
     The version is not typed by hand anywhere: it *is* the filename, so a run
     cannot claim a data version it did not load. The warehouse is append-only and
@@ -149,7 +150,7 @@ class RunContext:
         if self.horizon not in HORIZONS:
             raise ValueError(f"horizon must be one of {HORIZONS}, got {self.horizon}")
         if self.stage not in ("cv", "holdout"):
-            # Stage A (tuning) creates no runs at all (training_plan.md §8.0):
+            # Stage A (tuning) creates no runs at all (plan §8.0):
             # ~35k inner-CV fits at 50-200 ms of run-creation overhead each would
             # cost more than the modelling. It is logged as tuning_results.csv.
             raise ValueError(
@@ -164,7 +165,7 @@ class RunContext:
 
     @property
     def run_name(self) -> str:
-        """'{model}__{feature_set}__{window}' — training_plan.md §8.1."""
+        """'{model}__{feature_set}__{window}' — plan §8.1."""
         return f"{self.model_family}__{self.feature_set}__{self.window}"
 
     def tags(self) -> dict[str, str]:
@@ -209,7 +210,7 @@ def fold_run(fold: int):
     """Open a child run for one backtest fold.
 
     Children log metrics and params ONLY — artifacts attach to the parent
-    (training_plan.md §8.5). Cloud Storage's always-free tier allows 5,000
+    (plan §8.5). Cloud Storage's always-free tier allows 5,000
     Class A operations per month; per-child artifacts would be ~24,000.
     """
     with mlflow.start_run(run_name=f"fold_{fold:02d}", nested=True) as run:
@@ -221,7 +222,7 @@ def already_done(ctx: RunContext) -> bool:
 
     Called by sweep.py before fitting anything, so an interrupted multi-hour
     sweep resumes instead of restarting — which is also how `data_version` stays
-    consistent within one experiment (training_plan.md §9.1).
+    consistent within one experiment (plan §9.1).
     """
     exp = mlflow.get_experiment_by_name(ctx.experiment)
     if exp is None:

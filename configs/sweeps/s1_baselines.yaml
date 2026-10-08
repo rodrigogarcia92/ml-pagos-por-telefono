@@ -1,7 +1,7 @@
 # s1_baselines -- Target 1, the pre-registered floor. 20 parent runs, seconds.
 #
 # Five naive variants x two targets (t2 = h1, t3 = h3) x two windows.
-# training_plan.md section 3 Target 1, and execution order step 5.
+# plan section 3 Target 1, and execution order step 5.
 #
 # THIS IS THE GATE. Nothing in s2_proxy_grid means anything until these exist,
 # because every model in the grid is reported against naive_calendar. Running

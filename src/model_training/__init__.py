@@ -1,6 +1,6 @@
 """Modelling package — roadmap steps 7-10.
 
-Training is local by design (docs/project_outline.md §8.1). No module here
+Training is local by design (see docs/methodology.md). No module here
 queries BigQuery: everything reads the parquet snapshot written by snapshot.py
-(docs/training_plan.md §4.0).
+(plan §4.0).
 """

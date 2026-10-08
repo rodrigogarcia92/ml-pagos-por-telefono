@@ -1,6 +1,6 @@
 """Google Trends CSV -> validated monthly DataFrame, plus the `.meta.json` sidecar.
 
-Manual route (training_plan.md 4.5, O-15): the owner exports ONE Trends request
+Manual route (plan 4.5, O-15): the owner exports ONE Trends request
 holding two ENTITIES -- Yape ("Aplicación") and Plin ("Tema") -- and drops
 
     data/raw/google_trends/{pull_date}_yape_plin.csv

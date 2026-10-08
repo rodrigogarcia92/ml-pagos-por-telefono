@@ -1,4 +1,4 @@
-"""Series registry for the single source of truth.
+"""Series registry — the single source of truth.
 
 Mirrors the `raw.series_metadata` table defined in docs/data_sources.md —
 keep the two in sync when series are added or the employment series (§7 of
@@ -10,8 +10,8 @@ WHAT EACH SERIES CARRIES, AND WHY IT CARRIES IT HERE
         Identity and provenance. Flow into raw.series_metadata and from there
         into the dbt models, which generate the panel's column list from them.
 
-    kappa       publication lag in months (docs/training_plan.md §4.1)
-    transform   "log_diff" or "simple_diff" (docs/training_plan.md §4.2)
+    kappa       publication lag in months (plan §4.1)
+    transform   "log_diff" or "simple_diff" (plan §4.2)
         Modelling assumptions. These do NOT go to BigQuery. `snapshot.py`
         copies them into data/processed/series_meta_{data_version}.csv, and
         `dataset.py` reads them from there and refuses to build any feature
@@ -25,7 +25,7 @@ and a warehouse rebuild. Facts in the warehouse, assumptions in the code.
 """
 
 # --------------------------------------------------------------------------- #
-# Transform vocabulary — docs/training_plan.md §4.2
+# Transform vocabulary — plan §4.2
 #
 #   log_diff     multiplicative series, strictly positive. Δ = Δ log x.
 #   simple_diff  a percent or a bounded share. Δ = x_t − x_{t−1}, in
@@ -55,7 +55,7 @@ TRANSFORMS = {"log_diff", "simple_diff"}
 # still a genuine nowcast -- "last month's figure before the statistics office
 # publishes it" -- it is simply one month further back than the plan assumed.
 #
-# Logged as a deviation in docs/training_plan.md §11.
+# Logged as a deviation in plan §11.
 KAPPA_PAYMENTS = 2
 
 TARGET_SERIES = [
@@ -147,7 +147,7 @@ PAGOS_AGREGADOS_SERIES = [
 ]
 
 # --------------------------------------------------------------------------- #
-# Search interest -- Google Trends (training_plan.md 4.5, protocol 1.7).
+# Search interest -- Google Trends (plan 4.5, protocol 1.7).
 #
 # NOT a BCRP series: `source` says so, and fetch_target_series.py iterates
 # BCRP_SERIES, so it never asks the BCRP API for this code. It lives in this
@@ -195,7 +195,7 @@ START_BY_CATEGORY = {
     "complementary": "2010-1",
     "pagos_agregados": "2013-1",
     # Not a BCRP request window: Google Trends is pulled by hand from 2017-01-01
-    # (training_plan.md 4.5). Listed so the "category without a start date" guard
+    # (plan 4.5). Listed so the "category without a start date" guard
     # below stays a guard rather than learning an exception.
     "search_interest": "2017-1",
 }

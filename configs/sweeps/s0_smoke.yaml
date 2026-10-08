@@ -2,7 +2,7 @@
 #
 # NOT a throwaway. Five of the nine ARE Target 1, the pre-registered floor that
 # every one of the ~116 later models is judged against, and the protocol
-# requires them to exist in MLflow before any model runs (training_plan.md 3,
+# requires them to exist in MLflow before any model runs (plan 3,
 # execution order step 5). So the infrastructure test and the scientific floor
 # are the same runs.
 #

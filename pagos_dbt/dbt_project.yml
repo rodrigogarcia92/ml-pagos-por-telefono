@@ -11,12 +11,12 @@ seed-paths: ["seeds"]
 snapshot-paths: ["snapshots"]
 
 vars:
-  # Google Trends is OPT-IN. It was closed as a negative result (docs/training_plan.md 9.2, 11;
+  # Google Trends is OPT-IN. It was closed as a negative result (plan 9.2, 11;
   # D1 not adopted), so the production chain never needs raw.trends_observations. Anyone who
   # loads the data builds the Trends models with: dbt build --vars "{enable_trends: true}".
   enable_trends: false
 
-  # SINGLE-PULL RULE for Google Trends (docs/training_plan.md 4.5, 9.2). Trends rescales
+  # SINGLE-PULL RULE for Google Trends (plan 4.5, 9.2). Trends rescales
   # each request to its own peak, so a data_version takes the WHOLE history from one pull.
   # This is that pull: the latest one that passed the data gate (scripts/trends_gate.py).
   # 2026-10-05 is the first pull; the gate is still "pending" on G2 (one pull so far).

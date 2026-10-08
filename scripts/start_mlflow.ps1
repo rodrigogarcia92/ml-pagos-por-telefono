@@ -11,7 +11,7 @@
 # Workers  : 1  (deliberate, not a default - see the note above the command)
 #
 # Leave this running in its own terminal for the whole modelling session.
-# Ctrl-C to stop.  Docs: docs/mlflow_setup.md
+# Ctrl-C to stop.
 #
 # ASCII ONLY IN THIS FILE. Windows PowerShell 5.1 reads .ps1 as ANSI (CP1252)
 # unless the file has a UTF-8 BOM. A UTF-8 em dash then decodes as three CP1252
@@ -54,7 +54,7 @@ Write-Host ""
 # --workers 1 is deliberate. MLflow 3 defaults to 4 uvicorn workers, each with
 # its own SQLAlchemy engine against the SAME SQLite file. SQLite serialises
 # writers, so concurrent workers produce lock contention -> HTTP 500s and hung
-# client calls. There is exactly one client here (the development machine), so extra workers buy
+# client calls. There is exactly one client here, so extra workers buy
 # nothing and cost reliability.
 #
 # The same reasoning applies to sweep.py: joblib workers fit models and RETURN

@@ -25,5 +25,5 @@
     "status": "pending",
     "note": "needs a second pull on a different day: `trends reconcile`"
   },
-  "notes": "Manual export. Entity types (Yape = Aplicacion, Plin = Tema) are recorded from training_plan v1.7.1 s4.5; the CSV itself does not carry them. The export includes the incomplete pull month 2026-10 (Yape=100, Plin=13), which is excluded: complete months only. Values are literal 0 (not <1) until 2021; see the data gate."
+  "notes": "Manual export. Entity types (Yape = Aplicacion, Plin = Tema) are recorded from the training plan v1.7.1 s4.5; the CSV itself does not carry them. The export includes the incomplete pull month 2026-10 (Yape=100, Plin=13), which is excluded: complete months only. Values are literal 0 (not <1) until 2021; see the data gate."
 }

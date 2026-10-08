@@ -1,4 +1,4 @@
-"""Protocol 1.7 (training_plan.md 3 Targets 10-11, 4.5, 5.4, 7.4, 9.2): T7, T9, T10 and friends.
+"""Protocol 1.7 (plan 3 Targets 10-11, 4.5, 5.4, 7.4, 9.2): T7, T9, T10 and friends.
 
 Offline, synthetic panels. The one test that reads the real snapshot is skipped when
 the (gitignored) snapshot is absent.

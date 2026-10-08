@@ -26,7 +26,7 @@ SPEC KEYS
   targets, windows, stage, models, tune       as before
   feature_sets                                default feature sets for every model
   feature_sets_by_model                       per-model override, e.g. SARIMAX on
-                                              FS0-FS2 only (training_plan.md 7.2)
+                                              FS0-FS2 only (plan 7.2)
   protocol_version                            the tag every run of the sweep carries.
                                               A spec WITHOUT the key is 1.6 -- s0 to s4
                                               predate it and must keep producing 1.6

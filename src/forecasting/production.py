@@ -10,7 +10,7 @@ import yaml
 PRODUCTION_DIR = Path("configs/production")
 DEFAULT_CONFIG = PRODUCTION_DIR / "t3_ens3.yaml"
 
-# The literal marker written into docs/training_plan.md section 11 when the model is frozen.
+# The literal marker written into docs/methodology.md (decision log) when the model is frozen.
 # scripts/run_holdout.py refuses to run unless it is there: the holdout rule has to exist in
 # writing BEFORE the holdout is evaluated.
 FREEZE_MARKER = "PRODUCTION-FREEZE t3_ens3 v1"

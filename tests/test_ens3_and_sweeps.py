@@ -1,6 +1,6 @@
 """Protocol 1.7: T9 (ens3), reproducibility, protocol tagging, and the s1b / s5 sweeps.
 
-training_plan.md 7.4, 9.2. Offline: a synthetic panel written to a tmp snapshot, and a
+plan 7.4, 9.2. Offline: a synthetic panel written to a tmp snapshot, and a
 throwaway SQLite MLflow store for the one test that logs.
 """
 

@@ -10,7 +10,7 @@ puts scripts/ there instead -- and this file imports `src.model_training`.
 Why a script and not the UI: the MLflow Compare view loads every run it is
 given, and the write-up needs tables that can be regenerated rather than
 screenshotted. This is also the honest way to read the protocol, because it
-prints the two columns that matter TOGETHER (docs/training_plan.md 6.3):
+prints the two columns that matter TOGETHER (plan 6.3):
 
     mase       ranks configurations, comparable across horizons
     skill_h    1 - MAE_model / MAE_seasonal_naive, at THIS horizon
@@ -32,7 +32,7 @@ pre-registered.
                s1_baselines (20 runs, both horizons, both windows) ranks naive_drift
                first in every cell, and naive_calendar -- the plan's original
                hurdle -- last, indistinguishable from naive_seasonal. A model has
-               to beat THIS column to have beaten anything (training_plan.md O-11,
+               to beat THIS column to have beaten anything (plan O-11,
                section 11).
 """
 
@@ -90,7 +90,7 @@ def fetch(target: str, horizon: int, stage: str = "cv",
     n_folds = runs["params.n_folds"].astype(int)
     # The tag is set by tracking.parent_run. A run logged before it existed has
     # none; derive it from the fold count with the same rule rather than leave a
-    # demonstration unlabelled (training_plan.md 6.4 rule 4).
+    # demonstration unlabelled (plan 6.4 rule 4).
     status = runs.get("tags.evaluation_status")
     derived = n_folds.map(tracking.evaluation_status)
     out = pd.DataFrame({
@@ -243,7 +243,7 @@ def main() -> None:
     print("  rmse_mean equals mae_mean (one test point per fold), so it is not shown; the CSV keeps it")
     print("  as rmse_mean_is_mae.")
     print("  evaluation_status = 'demonstration' means fewer than 8 outer folds: the number")
-    print("  shows the pipeline runs, it does not rank anything (training_plan.md 6.4 rule 4).\n")
+    print("  shows the pipeline runs, it does not rank anything (plan 6.4 rule 4).\n")
 
     if a.detail:
         detail(a.target, a.horizon, show.head(a.detail), a.stage, a.protocol)

@@ -23,7 +23,7 @@ __pycache__/
 # pipeline reproducible from the repo alone. Everything below is regenerable.
 # That includes the training snapshots in data/processed/ — panel_*.parquet and
 # series_meta_*.csv are rebuilt by snapshot.py from the warehouse, which is in
-# turn rebuilt from data/raw/. See training_plan.md §4.0.
+# turn rebuilt from data/raw/. See plan §4.0.
 data/interim/
 data/processed/
 data/external/
@@ -68,3 +68,6 @@ Claude outputs/
 # Written into the workspace by google-github-actions/auth in the monthly refresh; it would
 # make the forecast record a dirty tree.
 gha-creds-*.json
+
+# Internal working documents kept locally only
+private_docs/

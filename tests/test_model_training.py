@@ -4,7 +4,7 @@ Every one of these guards a failure that is SILENT -- a wrong number in a
 feature matrix, not a crash. A leak found at roadmap step 11 invalidates
 everything above it; these run in about a second.
 
-See docs/training_plan.md 9.0.
+See plan 9.0.
 """
 
 from __future__ import annotations
@@ -163,7 +163,7 @@ def test_t4_fold_counts_match_the_plan(window, horizon, expected):
     n_cv = {("w2019", 1): 65, ("w2019", 3): 63,
             ("w2021", 1): 41, ("w2021", 3): 39}[(window, horizon)]
     folds = splits.make_folds(n_cv, window=window, horizon=horizon)
-    assert len(folds) == expected, "fold arithmetic drifted from training_plan.md 2"
+    assert len(folds) == expected, "fold arithmetic drifted from plan 2"
 
 
 def test_t4_purge_gap_and_no_overlap():
@@ -222,7 +222,7 @@ def test_seasonal_reference_is_weak_on_a_trending_series(synthetic):
       * skill_h is defined against the seasonal naive, so it will look
         flattering for almost any model. A large positive skill_h is not on its
         own evidence that a model learned anything.
-      * naive_calendar is designated "the hurdle" in training_plan.md 3, but on
+      * naive_calendar is designated "the hurdle" in plan 3, but on
         a series with this much drift the binding baseline is naive_drift.
         s1_baselines settles it empirically -- which is exactly why the protocol
         runs the floor before any model.
@@ -368,7 +368,7 @@ def test_s2_spec_expands_to_the_planned_66_parents():
 
     spec = yaml.safe_load(Path("configs/sweeps/s2_proxy_grid.yaml").read_text(encoding="utf-8"))
     runs = sweep.expand(spec, "data/processed/panel_x.parquet")
-    assert len(runs) == 66                                 # training_plan.md 7.2
+    assert len(runs) == 66                                 # plan 7.2
     sar = [r for r in runs if r.model_family == "sarimax"]
     assert len(sar) == 6
     assert {r.feature_set for r in sar} == {"FS0_calendar", "FS1_autoregressive", "FS2_cash"}

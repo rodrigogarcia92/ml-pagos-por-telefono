@@ -32,7 +32,7 @@ from src.data_collection.config import BCRP_SERIES, START_BY_CATEGORY
 END = f"{date.today().year}-12"
 SLEEP_SECONDS = 0.3  # be polite to a free public API
 # A bot-protection page answers EVERY request the same way. After this many series in a row come
-# back as non-JSON, stop instead of spending minutes of backoff on the rest (training_plan.md O-13).
+# back as non-JSON, stop instead of spending minutes of backoff on the rest (plan O-13).
 MAX_CONSECUTIVE_NON_JSON = 2
 
 
@@ -57,7 +57,7 @@ def main() -> int:
             if blocked_in_a_row >= MAX_CONSECUTIVE_NON_JSON:
                 print(f"\nBCRP answered {blocked_in_a_row} requests in a row with a non-JSON body "
                       "(bot protection?). Stopping. Retry later or download by hand; do not try to "
-                      "get around it (training_plan.md O-13).")
+                      "get around it (plan O-13).")
                 break
         time.sleep(SLEEP_SECONDS)
 

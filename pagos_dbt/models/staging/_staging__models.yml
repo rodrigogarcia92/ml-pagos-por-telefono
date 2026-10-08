@@ -91,7 +91,7 @@ models:
       enabled: "{{ var('enable_trends', false) }}"
     description: >
       Google Trends, ONE pull, ONE row per month: yape + plin in index points
-      (training_plan.md 4.5). The single-pull rule lives here -- the pull is
+      (plan 4.5). The single-pull rule lives here -- the pull is
       var('trends_pull_id') in dbt_project.yml (latest pull that passed the data gate).
       Never mix months from two pulls: Trends rescales each request.
     columns:

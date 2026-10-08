@@ -3,7 +3,7 @@
 #     python scripts/run_holdout.py              # prints what it would run, exits 0
 #     python scripts/run_holdout.py --confirm    # the real run -- once, ever
 #
-# training_plan.md 6.1, 7.3 (Stage C), 11 (marker "PRODUCTION-FREEZE t3_ens3 v1" holds the rule).
+# plan 6.1, 7.3 (Stage C), 11 (marker "PRODUCTION-FREEZE t3_ens3 v1" holds the rule).
 #
 #   t3 (h=3) x w2019 x { ens3 x FS3_activity, naive_drift x none } = 2 parents
 #

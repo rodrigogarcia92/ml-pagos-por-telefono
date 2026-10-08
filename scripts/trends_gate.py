@@ -1,4 +1,4 @@
-"""Google Trends data gate G1-G3 (docs/training_plan.md 9.2, O-14). Read-only.
+"""Google Trends data gate G1-G3 (plan 9.2, O-14). Read-only.
 
     .venv\\Scripts\\python.exe scripts/trends_gate.py
     .venv\\Scripts\\python.exe scripts/trends_gate.py --snapshot data/processed/panel_20261005T000000Z.parquet
@@ -11,7 +11,7 @@ THE CV PERIOD, AND ONLY THE CV PERIOD
 -------------------------------------
 Every number below is computed on months BEFORE the final holdout. The holdout is
 the last HOLDOUT_MONTHS (12) target months of the payments series on the snapshot
-(training_plan.md 6.1), so the gate reads the snapshot only to find where the
+(plan 6.1), so the gate reads the snapshot only to find where the
 payments end and to get n_transf_intra_agg for G3; every month at or after the
 holdout start is dropped before any statistic is taken. On snapshot 20261005
 (payments through 2026-07) the CV period ends 2025-07.

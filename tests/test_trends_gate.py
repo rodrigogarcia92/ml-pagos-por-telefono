@@ -1,4 +1,4 @@
-"""scripts/trends_gate.py -- G1-G3 exactly as training_plan.md 9.2, CV period only."""
+"""scripts/trends_gate.py -- G1-G3 exactly as plan 9.2, CV period only."""
 
 from __future__ import annotations
 

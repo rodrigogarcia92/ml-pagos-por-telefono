@@ -1,4 +1,4 @@
-"""Google Trends ingestion (training_plan.md 4.5, 9.2): parser, sidecar, loader.
+"""Google Trends ingestion (plan 4.5, 9.2): parser, sidecar, loader.
 
 Offline: every test writes its own CSVs into tmp_path. The real pull in
 data/raw/google_trends/ is read once, read-only, as a regression check that the

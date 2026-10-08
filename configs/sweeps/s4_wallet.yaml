@@ -1,5 +1,5 @@
 # s4_wallet -- the wallet targets and the seasonal-transfer test. 30 parent runs.
-# training_plan.md section 7.2 rows 13-14, section 5.2, section 9.1.
+# plan section 7.2 rows 13-14, section 5.2, section 9.1.
 #
 #   naive x 5 variants                         x 2 targets   = 10
 #   ridge    x 5 feature sets (3 + 2 transfer) x 2 targets   = 10

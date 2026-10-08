@@ -40,7 +40,7 @@ RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw" / "bcrp"
 # Retries are for TRANSIENT failures only: a dropped connection or a body that is not JSON (an
 # error page, a half-loaded response). 2 s, 4 s, 8 s, then give up and say what came back.
 # Nothing here tries to get past bot protection -- no header spoofing, no challenge solving
-# (training_plan.md O-13 forbids it); if the host serves a challenge page, retries will not help
+# (plan O-13 forbids it); if the host serves a challenge page, retries will not help
 # and the error names it so a person can decide.
 BACKOFF_SECONDS = (2, 4, 8)
 BODY_HEAD_CHARS = 200

@@ -2,7 +2,7 @@
 
 Never a random split. The rows are consecutive months and the target is
 autocorrelated, so a shuffled split lets the model see the future -- that is a
-guaranteed fake result, not a subtle bug (docs/training_plan.md 6.2).
+guaranteed fake result, not a subtle bug (plan 6.2).
 
     origins:  0 1 2 ... 35 | 36 | 37 ...
     fold 0:   [--- train ---] test
@@ -23,7 +23,7 @@ from dataclasses import dataclass
 import numpy as np
 
 # Per window, because a flat 36 leaves 5 folds on w2021 and none at all on
-# w2024 at h=3 (training_plan.md 6.2). Logged as a param on every run, so the
+# w2024 at h=3 (plan 6.2). Logged as a param on every run, so the
 # choice is visible in the MLflow table and runs are only compared within a window.
 MIN_TRAIN = {"w2019": 36, "w2021": 24, "w2024": 12}
 
@@ -72,7 +72,7 @@ def holdout_folds(n_rows: int, *, n_cv: int, horizon: int) -> list[Fold]:
     """Stage C: one expanding-window fold per holdout origin, purge included.
 
     Same construction as Stage B, so the B -> C gap (selection optimism,
-    training_plan.md 7.3) compares like with like. Rows `n_cv` .. `n_rows - 1` are
+    plan 7.3) compares like with like. Rows `n_cv` .. `n_rows - 1` are
     the holdout; the first test origin is `n_cv`, and every fold trains on
     everything up to `origin - purge`.
 
@@ -80,7 +80,7 @@ def holdout_folds(n_rows: int, *, n_cv: int, horizon: int) -> list[Fold]:
     holdout rows at once. That had no purge -- a leak at h=3, where the last
     training target overlaps the first test target -- and scored a model that was
     never refitted as the holdout unfolded, so it was not comparable with Stage B.
-    Nothing had been run against it when it was replaced (training_plan.md 11).
+    Nothing had been run against it when it was replaced (plan 11).
     """
     purge = horizon - 1
     folds = []

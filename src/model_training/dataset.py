@@ -2,7 +2,7 @@
 
 Every model in the grid is evaluated on identical inputs because they all come
 through here. The three rules this module enforces, each of which is a silent
-bug if it is wrong (docs/training_plan.md 1.3, 1.4, 4.2):
+bug if it is wrong (plan 1.3, 1.4, 4.2):
 
   1. NON-ANTICIPATION. A feature from series j may only reference month
      t - k with k >= kappa_j. Enforced against the snapshot metadata, not
@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# Panel column -> feature-name prefix, per training_plan.md 4.4.
+# Panel column -> feature-name prefix, per plan 4.4.
 PREFIX = {
     "circulante": "circ",
     "pbi_idx": "pbi",
@@ -36,7 +36,7 @@ PREFIX = {
     "ingreso_formal": "ing",
     "tasa_referencia": "tasa",
     "dolarizacion_liquidez": "dol",
-    # Google Trends (training_plan.md 4.5, protocol 1.7). kappa = 0, so gt_d0 -- the
+    # Google Trends (plan 4.5, protocol 1.7). kappa = 0, so gt_d0 -- the
     # change in the latest complete month -- is admissible. The names follow the
     # convention below, NOT the owner's "gt_d1"/"gt_d12": here `_d{k}` is the one-month
     # change at lag k, so gt_d1 would be last month's change and gt_d12 the change twelve
@@ -74,7 +74,7 @@ WINDOWS = {
     "w2024": "2024-01-01",
 }
 
-# Seasonal-transfer factors (training_plan.md 5.2, pre-registered 2026-10-05).
+# Seasonal-transfer factors (plan 5.2, pre-registered 2026-10-05).
 # Month-of-year mean of the t2 target (dlog of the aggregate) over TARGET months
 # first <= tau < cutoff, minus the COVID pulse months, demeaned to sum to zero.
 # Measured on the aggregate -- never on a fitted model, and never on any month
@@ -252,7 +252,7 @@ def build(
             if src not in panel.columns:
                 raise KeyError(
                     f"{src} is not in this snapshot. Google Trends needs a snapshot taken "
-                    "after load_trends + dbt build + snapshot (training_plan.md 9.2 step 3)."
+                    "after load_trends + dbt build + snapshot (plan 9.2 step 3)."
                     if src == "gt_yape_plin" else f"{src} is not in this snapshot."
                 )
             s = panel[src]
@@ -361,7 +361,7 @@ def build(
                 raise ValueError(
                     f"{name}: lag {k} violates kappa={kappa} for {src}. "
                     "Fix the feature set, or fix kappa in config.py -- and log "
-                    "the change in training_plan.md 11."
+                    "the change in plan 11."
                 )
             feats[name] = d.shift(k)
         elif suffix.startswith("ma"):

@@ -8,7 +8,7 @@
 -- ASSUMPTION a human declared and can be wrong about -- it lives in
 -- src/data_collection/config.py, versioned with the protocol that acts on it,
 -- and reaches the modelling code through the snapshot rather than through
--- BigQuery. Facts here; assumptions there. See docs/training_plan.md 4.1.
+-- BigQuery. Facts here; assumptions there. See plan 4.1.
 --
 -- TWO KINDS OF NULL, AND ONLY ONE IS A BUG
 --
@@ -74,7 +74,7 @@ select
 
     -- How stale this series is relative to the freshest series in the panel.
     -- This is the RAGGED RIGHT EDGE, and it is the empirical shadow of the
-    -- publication lags in training_plan.md 4.1: at any pull date the policy
+    -- publication lags in plan 4.1: at any pull date the policy
     -- rate is current, monthly macro is a month behind, and monthly GDP and
     -- the payments series are further behind still.
     --

@@ -22,7 +22,7 @@ models:
         description: >
           Google Trends, Yape (Aplicación) + Plin (Tema), Peru, index points (sum, one
           request). 2017-01 to the last complete month, ONE pull (stg_trends, single-pull
-          rule). A relative index: model it only as log differences (training_plan.md 4.2).
+          rule). A relative index: model it only as log differences (plan 4.2).
           Zero until 2021 -- see the data gate.
         data_tests:
           - dbt_utils.accepted_range:
@@ -74,7 +74,7 @@ models:
       months it spans, and whether there are holes inside that span. Exists so
       the difference between a structural edge NULL (series not yet born) and
       an interior NULL (a real defect) is asserted on every build rather than
-      eyeballed once. See docs/training_plan.md 4.0.
+      eyeballed once. See plan 4.0.
     columns:
       - name: col_name
         description: Panel column this series populates.
@@ -118,7 +118,7 @@ models:
       - name: months_behind_panel_edge
         description: >
           Staleness relative to the freshest series in the panel. A cross-check
-          on the publication lags in training_plan.md 4.1 -- informational, not
+          on the publication lags in plan 4.1 -- informational, not
           asserted, because it also moves with the ETL run date.
         data_tests:
           - not_null

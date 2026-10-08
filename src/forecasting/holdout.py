@@ -8,7 +8,7 @@ per holdout origin, plan 7.3) and driven by the sweep machinery; this module onl
 WHETHER it may run, runs it, and prints the result in the form the pre-registered rule asks for.
 
 It refuses unless ALL of:
-  (a) docs/training_plan.md section 11 holds the marker `PRODUCTION-FREEZE t3_ens3 v1` -- the
+  (a) docs/methodology.md (decision log) holds the marker `PRODUCTION-FREEZE t3_ens3 v1` -- the
       holdout rule must exist in writing before the holdout is evaluated;
   (b) `--confirm` was passed;
   (c) MLflow has no finished holdout run for these two parents on this data_version -- the
@@ -37,7 +37,7 @@ from src.model_training.snapshot import latest_snapshot
 from src.model_training.train import RunConfig, context_for, log_config
 
 SPEC = Path("configs/sweeps/s6_holdout.yaml")
-PLAN = Path("docs/training_plan.md")
+PLAN = Path("docs/methodology.md")
 EXPECTED = {("ens3", "FS3_activity"), ("naive_drift", "none")}
 CHALLENGER, BASELINE = "ens3", "naive_drift"
 
@@ -190,7 +190,7 @@ def render(res: dict) -> str:
                   f"ensemble did NOT beat the trend-line baseline (MASE {c['mase']:.3f} vs {b['mase']:.3f}; "
                   f"MAPE {c['mape']:.1f}% vs {b['mape']:.1f}%). The trend line is the production fallback.")
     lines += [f"  VERDICT (pre-registered rule, point MASE): {verdict}", "",
-              "Paste into docs/training_plan.md section 11:", "",
+              "Paste into docs/methodology.md (decision log):", "",
               f"| {pd.Timestamp.today():%Y-%m-%d} | 6.1, 7.3 Stage C | **PRODUCTION-FREEZE t3_ens3 v1 -- holdout result.** "
               f"ens3 FS3 vs naive_drift on {res['n_months']} target months {span} (data_version {res['data_version']}, "
               f"MLflow runs {res['run_ids'][CHALLENGER]} / {res['run_ids'][BASELINE]}): MASE {c['mase']:.3f} vs {b['mase']:.3f}, "

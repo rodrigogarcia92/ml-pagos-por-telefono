@@ -228,7 +228,7 @@ A scheduled GitHub Actions job runs this chain every month. BCRP publishes on no
 2. **Forecast growth, not levels.** Models predict the % change from the last published month, then convert it back to a level.
 3. **Beat the baseline first.** Five simple forecasts were run before any machine learning. The simple trend line was the hardest to beat.
 4. **Test like it's live.** Expanding-window backtesting: train on the past, forecast forward, move one month, repeat.
-5. **Decide before looking.** Thresholds and decision rules are written into [`docs/training_plan.md`](docs/training_plan.md) before each experiment. Every deviation is logged there with its reason.
+5. **Decide before looking.** Thresholds and decision rules are written into [`docs/methodology.md`](docs/methodology.md) before each experiment. Every deviation is recorded in its decision log with the reason.
 
 ### 5.4 What was tested
 
@@ -294,7 +294,7 @@ Negative results save time and money: they show which data is not worth buying, 
 data/raw/bcrp/           immutable API snapshots; the warehouse rebuilds from these
 data/raw/google_trends/  manual Trends exports + .meta.json (tested, not used in models)
 data/processed/          training snapshots (gitignored, rebuilt by snapshot.py)
-docs/                    design outline, pre-registered training plan, runbook, figures
+docs/                    methodology, runbook, data sources, figures
 configs/                 feature sets and experiment sweeps (YAML)
 pagos_dbt/               dbt project (models + data-quality tests)
 scripts/                 MLflow launcher, Trends data gate, helpers
@@ -345,8 +345,7 @@ About 180 offline tests. They cover leakage guards (including a shuffled-target 
 
 ### Documentation
 
-- [`docs/project_outline.md`](docs/project_outline.md): design, architecture, decisions
-- [`docs/training_plan.md`](docs/training_plan.md): the pre-registered modeling protocol and deviations log
+- [`docs/methodology.md`](docs/methodology.md): the question, the pre-registered protocol, decision rules and the decision log
 - [`docs/data_sources.md`](docs/data_sources.md): data sources and warehouse decisions
 
 ## Acknowledgements

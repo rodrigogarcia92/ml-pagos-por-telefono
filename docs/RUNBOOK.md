@@ -1,14 +1,14 @@
-# Runbook — this project "ML - Pagos por Teléfono"
+# Runbook — "ML - Pagos por Teléfono"
 
-**Machine:** the development machine (Windows 11, PowerShell)
-**Project root:** `<repo root>`
-**Companions:** `docs/mlflow_setup.md` (one-time setup) · `docs/training_plan.md` (what to run and why) · `docs/project_outline.md` (architecture)
+**Environment:** Windows 11, PowerShell
+**Project root:** the repository root
+**Companion:** [`docs/methodology.md`](methodology.md) (what is run and why)
 
 > **What this is.** Every command, in order, from a cold machine to a finished
 > sweep. Written to be followed without thinking, because the thinking is in the
 > other three documents.
 >
-> **Read the decision tree in §0 first.** Most sessions do NOT need the ETL.
+> **Read the decision tree in §0 first.** Most runs do NOT need the ETL.
 
 ---
 
@@ -35,14 +35,14 @@ except new files in `data/raw/bcrp/`. The de-duplication in dbt makes a redundan
 pull harmless, not useful.
 
 **Never re-snapshot in the middle of a sweep.** A sweep must run against exactly
-one `data_version` (`training_plan.md` §4.0). Finish, then re-snapshot.
+one `data_version` (plan §4.0). Finish, then re-snapshot.
 
 ---
 
 ## 1. Environment — every session
 
 ```powershell
-cd "<repo root>"
+cd <repository root>
 .\.venv\Scripts\Activate.ps1
 ```
 
@@ -129,7 +129,7 @@ silently feed the ones downstream.
 `marts.series_coverage`: it asserts that no series has a missing month inside its
 own coverage. Structural NULLs at the edges (Yape before 2024) are expected and
 correct; a hole in the middle would silently corrupt every lag and moving average
-built from that series. See `training_plan.md` §4.0.
+built from that series. See plan §4.0.
 
 A full build scans roughly 82 KB — seven orders of magnitude inside the free tier.
 
@@ -150,7 +150,7 @@ data/processed/series_meta_{data_version}.csv     col_name, kappa, transform, ca
 
 `data_version` is `MAX(pulled_at)` from the warehouse and **is the filename**, so
 no run can claim a data version it did not load. After this, **nothing in
-`src/model_training/` touches BigQuery again** (`training_plan.md` §4.0).
+`src/model_training/` touches BigQuery again** (plan §4.0).
 
 Both are gitignored — regenerable from `data/raw/bcrp/`, which is committed.
 
@@ -175,7 +175,7 @@ UI at `http://127.0.0.1:5000`.
 
 > **If every request returns HTTP 500** with `AttributeError: module 'anyio' has no
 > attribute 'from_thread'` — the `anyio<4.15` pin was lost. `pip install "anyio<4.15"`.
-> See `mlflow_setup.md` §0.
+
 
 **Open a second terminal for everything below** (§1 again: `cd`, activate).
 
@@ -187,7 +187,7 @@ UI at `http://127.0.0.1:5000`.
 pytest -q
 ```
 
-Six tests guard the things that fail *silently* (`training_plan.md` §9.0): calendar
+Six tests guard the things that fail *silently* (plan §9.0): calendar
 indexing at h=3, κ enforcement, strict feature-set nesting, the purge gap,
 the MASE identity, and the shuffled-target leak canary. Since 2026-10-05 the suite also pins
 the wallet window (O-12: the MASE scale, the missing seasonal reference), the seasonal-transfer
@@ -556,7 +556,7 @@ Exit code 2 means "done, but the monitor says alert".
 
 ### 13.5 The holdout (once, ever)
 
-`docs/training_plan.md` §11 holds the freeze entry **`PRODUCTION-FREEZE t3_ens3 v1`** with the rule written *before* the holdout is run: ens3 FS3 against
+`docs/methodology.md` (decision log) holds the freeze entry **`PRODUCTION-FREEZE t3_ens3 v1`** with the rule written *before* the holdout is run: ens3 FS3 against
 `naive_drift` on the final 12 target months (2025-08 ... 2026-07 on snapshot `20261005T000000Z`); MASE, MAPE and the paired per-month difference
 +/- SE; published whatever it is; nothing re-tuned, re-selected or re-run afterwards. The command refuses unless that marker is in the plan, you
 pass `--confirm`, and MLflow has no finished holdout run for the two parents on this `data_version`.

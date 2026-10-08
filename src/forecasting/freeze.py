@@ -32,7 +32,7 @@ HEADER = """\
 # Written by scripts/freeze_production.py -- do not edit by hand; regenerate and re-record.
 # Hyperparameters are READ from the MLflow run below (Stage A on the CV period, protocol 1.7),
 # the error band is computed on CV folds only. Selection record and the pre-registered holdout
-# rule: docs/training_plan.md section 11, marker "PRODUCTION-FREEZE t3_ens3 v1".
+# rule: docs/methodology.md (decision log), marker "PRODUCTION-FREEZE t3_ens3 v1".
 """
 
 
@@ -82,7 +82,7 @@ def build_config(panel, meta, snapshot_path: str | Path, con: sqlite3.Connection
         "data_version": version,
         "protocol_version": PROTOCOL,
         "selected_on": "cv",
-        "selection_record": f"docs/training_plan.md section 11, marker {production.FREEZE_MARKER!r}",
+        "selection_record": f"docs/methodology.md (decision log), marker {production.FREEZE_MARKER!r}",
         "cv_mase_mean": float(metrics["mase_mean"]),
         "error_band": {
             "basis": ("empirical quantiles of log(actual / forecast) over the CV backtest folds "

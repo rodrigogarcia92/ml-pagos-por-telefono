@@ -11,7 +11,7 @@ min_train:
   w2021: 24
   w2024: 12
 
-# Evaluated ONCE, for the selected configuration only (training_plan.md 6.1).
+# Evaluated ONCE, for the selected configuration only (plan 6.1).
 # w2024 gets 6 rather than 12: a 12-month holdout on a 30-month window leaves
 # nothing to select on.
 holdout_months:

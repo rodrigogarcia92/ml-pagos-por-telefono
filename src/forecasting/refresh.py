@@ -168,7 +168,7 @@ def _run_external(stage: str, ctx: Ctx) -> None:
             raise BcrpBlockedError(
                 stage, shown,
                 "BCRP did not return JSON (bot protection?). Retry later, run the refresh locally, "
-                "or download by hand; do NOT try to get around it (training_plan.md O-13).",
+                "or download by hand; do NOT try to get around it (plan O-13).",
                 tail_of(out), proc.returncode)
         raise StageError(stage, shown, f"exit code {proc.returncode}", tail, proc.returncode)
 
