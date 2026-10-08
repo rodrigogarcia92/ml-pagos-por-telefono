@@ -112,7 +112,7 @@ Sections 3.1, 3.3 and 3.4 come from **backtesting** (see the glossary): the mode
 | Worst month | 19% | 17% |
 | MASE (lower is better; 1.0 is a naive reference) | **0.265** | 0.402 |
 
-The model is better on average, and the difference is statistically reliable: it won in **99.7%** of 5,000 resampled versions of history. It is not better every single month. It is closer to the truth in **24 of 41** months, but wins by a wide margin when it wins.
+The model is better on average, and the difference is statistically reliable: it won in **99.6%** of 5,000 resampled versions of history. It is not better every single month. It is closer to the truth in **24 of 41** months, but wins by a wide margin when it wins.
 
 ![Forecasts vs actual: the ensemble tracks the actual series more closely than the trend line](docs/figures/fig1_forecasts.png)
 
@@ -241,7 +241,7 @@ Picking "the lowest number on the leaderboard" is not enough when many models ar
 1. **Beat the baseline.** Only models clearly better than the simple trend line stay in.
 2. **Paired comparison.** Every model was scored on the **same 41 forecasts**, so each candidate is compared to the leader month by month. Candidates within one standard error count as **tied**.
 3. **Prefer the simpler, earlier-justified option among ties.** XGBoost with all macro variables was tied, but those variables had already been shown not to help (§7), so it was excluded.
-4. **Check stability.** History was resampled 5,000 times in blocks of 6 months to see how often each model wins. The ensemble came first most often (42%), and the trend line never did.
+4. **Check stability.** History was resampled 5,000 times in blocks of 6 months to see how often each model wins. The ensemble came first most often (36%), and the trend line never did.
 
 ![Model comparison: models whose error bar touches zero are statistically tied with the leader](docs/figures/fig2_selection.png)
 

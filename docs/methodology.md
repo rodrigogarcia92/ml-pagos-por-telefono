@@ -58,7 +58,8 @@ All metrics are computed on reconstructed levels.
 - **MAPE** is reported, not optimised.
 - **MAE, RMSE** (pooled over all test points) give business-legible magnitudes.
 - **Paired differences ± SE.** Models are compared fold by fold on the same test origins; the difference in per-fold MASE has standard error `sd / √n_folds`. "Tied" means the difference is within 1 SE. The same paired comparison on the holdout is made per month.
-- Uncertainty on model comparisons is the paired SE above. Folds share training data and neighbouring months are serially correlated, so the SE is a rough guide, not an exact interval; no bootstrap is used.
+- Uncertainty on model comparisons is the paired SE above. Folds share training data and neighbouring months are serially correlated, so the SE is a rough guide, not an exact interval.
+- **Ranking stability check (supporting, not decisive).** To see how stable the ranking is under resampled history, the 41 paired per-fold MASE values (target `t3`, `w2019`, snapshot `20261005T000000Z`) of the nine candidates in the selection chart were resampled with a moving block bootstrap: overlapping blocks of 6 consecutive folds, 5,000 replicates, fixed seed, the same folds drawn for every model so comparisons stay paired. The ensemble's mean MASE was below naive drift's in 99.6% of replicates; the 90% percentile interval of the mean paired difference (ensemble − naive drift) is [−0.243, −0.058]; the ensemble had the lowest mean MASE most often (36%, ahead of XGBoost on all macro variables 21% and on macro plus policy stance 20%), and naive drift never did. The intervals depend slightly on the seed (the headline share moves by about ±0.1 points). This check supports, but did not drive, the pre-registered decision rule, which remains the paired SE above. Reproduce with `scripts/selection_bootstrap.py` (read-only on MLflow).
 
 ## 6. The hurdle
 
