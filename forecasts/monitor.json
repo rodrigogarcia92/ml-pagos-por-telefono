@@ -1,7 +1,7 @@
 {
   "status": "ok",
-  "checked_at": "2026-10-07T22:06:20+00:00",
-  "snapshot_data_version": "20261007T000000Z",
+  "checked_at": "2026-10-20T18:10:35+00:00",
+  "snapshot_data_version": "20261020T000000Z",
   "threshold_pct": 10.0,
   "n_scored": 0,
   "latest_scored_month": null,
