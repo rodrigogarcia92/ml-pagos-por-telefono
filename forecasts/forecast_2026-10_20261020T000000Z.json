@@ -1,0 +1,56 @@
+{
+  "target_month": "2026-10",
+  "origin": "2026-09",
+  "data_version": "20261020T000000Z",
+  "point_forecast": 1269.25,
+  "unit": "millions of transfers per month",
+  "band_80": [
+    1222.396,
+    1400.436
+  ],
+  "band_90": [
+    1210.419,
+    1414.548
+  ],
+  "band_basis": "empirical quantiles of log(actual/forecast) over 41 CV folds (2022-03..2025-07); CV MAPE 4.39%",
+  "last_actual": {
+    "month": "2026-08",
+    "value": 1136.303
+  },
+  "anchor": {
+    "month": "2026-07",
+    "value": 1154.084
+  },
+  "members": {
+    "svr_rbf": 1260.696,
+    "rf": 1262.045,
+    "xgboost": 1285.157
+  },
+  "model_id": "t3_ens3_FS3_activity_w2019",
+  "config_hash": "6df315ec0085",
+  "git_sha": "edc7e6c",
+  "tree_dirty": true,
+  "tree_changes": [
+    "data/raw/bcrp/2026-10-20_PD04722MM.json",
+    "data/raw/bcrp/2026-10-20_PN00025MM.json",
+    "data/raw/bcrp/2026-10-20_PN00048MM.json",
+    "data/raw/bcrp/2026-10-20_PN01246PM.json",
+    "data/raw/bcrp/2026-10-20_PN01770AM.json",
+    "data/raw/bcrp/2026-10-20_PN37696PM.json",
+    "data/raw/bcrp/2026-10-20_PN38705PM.json",
+    "data/raw/bcrp/2026-10-20_PN42171EM.json",
+    "data/raw/bcrp/2026-10-20_PN42180EM.json",
+    "data/raw/bcrp/2026-10-20_PN42200EM.json",
+    "data/raw/bcrp/2026-10-20_PN42209EM.json",
+    "data/raw/bcrp/2026-10-20_PN42233EM.json",
+    "data/raw/bcrp/2026-10-20_PN42234EM.json",
+    "data/raw/bcrp/2026-10-20_PN42661EM.json",
+    "data/raw/bcrp/2026-10-20_PN42662EM.json",
+    "data/raw/bcrp/2026-10-20_PN42663EM.json",
+    "data/raw/bcrp/2026-10-20_PN42667EM.json",
+    "data/raw/bcrp/2026-10-20_PN42668EM.json",
+    "data/raw/bcrp/2026-10-20_PN42672EM.json",
+    "data/raw/bcrp/2026-10-20_PN42673EM.json"
+  ],
+  "created_at": "2026-10-20T18:10:35+00:00"
+}
