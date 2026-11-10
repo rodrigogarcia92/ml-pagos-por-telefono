@@ -1,33 +1,33 @@
 {
   "outcome": "forecast",
-  "started_at": "2026-10-07T22:06:14+00:00",
-  "finished_at": "2026-10-07T22:06:20+00:00",
-  "seconds": 6.59,
+  "started_at": "2026-11-10T20:39:41+00:00",
+  "finished_at": "2026-11-10T20:40:55+00:00",
+  "seconds": 73.84,
   "stages": [
     {
       "stage": "fetch",
-      "status": "skipped",
-      "seconds": 0.0
+      "status": "ok",
+      "seconds": 17.79
     },
     {
       "stage": "load",
-      "status": "skipped",
-      "seconds": 0.0
+      "status": "ok",
+      "seconds": 12.62
     },
     {
       "stage": "dbt",
-      "status": "skipped",
-      "seconds": 0.0
+      "status": "ok",
+      "seconds": 36.3
     },
     {
       "stage": "snapshot",
       "status": "ok",
-      "seconds": 5.6
+      "seconds": 6.24
     },
     {
       "stage": "predict",
       "status": "ok",
-      "seconds": 0.97
+      "seconds": 0.87
     },
     {
       "stage": "monitor",
@@ -35,10 +35,10 @@
       "seconds": 0.02
     }
   ],
-  "data_version": "20261007T000000Z",
-  "target_month": "2026-10",
-  "forecast_file": "forecasts/forecast_2026-10_20261007T000000Z.json",
-  "point_forecast": 1273.559,
+  "data_version": "20261110T000000Z",
+  "target_month": "2026-11",
+  "forecast_file": "forecasts/forecast_2026-11_20261110T000000Z.json",
+  "point_forecast": 1244.113,
   "monitor_status": "ok",
   "monitor_exit": 0,
   "error": null
